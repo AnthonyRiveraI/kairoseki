@@ -100,7 +100,7 @@ def test_vscode_servers_key(tmp_path: Path) -> None:
 
 
 def cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(kairoseki_argv(*args), capture_output=True, text=True, cwd=cwd, timeout=120)
+    return subprocess.run(kairoseki_argv(*args), capture_output=True, encoding="utf-8", cwd=cwd, timeout=120)
 
 
 def test_cli_init_writes_valid_policy(tmp_path: Path) -> None:

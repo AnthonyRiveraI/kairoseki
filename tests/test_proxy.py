@@ -55,7 +55,7 @@ def run_lines(tmp_path: Path, lines: list[str], timeout: float = 20) -> tuple[li
         kairoseki_argv("run", "--name", "echo", "--", sys.executable, str(server)),
         input="\n".join(lines) + "\n",
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         timeout=timeout,
     )
     out = []

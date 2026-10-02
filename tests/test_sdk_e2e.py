@@ -156,7 +156,7 @@ async def test_cli_approval_fallback(tmp_path: Path, mode: str) -> None:
         text = _texts(blocked)
         approval_id = text.split("kairoseki approve ")[1].split("`")[0]
         assert approval_id.startswith("K-")
-        done = subprocess.run(kairoseki_argv("approve", approval_id), capture_output=True, text=True)
+        done = subprocess.run(kairoseki_argv("approve", approval_id), capture_output=True, encoding="utf-8")
         assert done.returncode == 0, done.stderr
         retried = await conn.call("send_email", args)
         assert not _err(retried), _texts(retried)
