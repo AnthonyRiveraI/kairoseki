@@ -2,9 +2,11 @@
   <img src="docs/assets/banner.svg" width="100%" alt="Kairoseki - seastone for your AI agents" />
 </p>
 
+<p align="center"><b>English</b> · <a href="README.es.md">Español</a></p>
+
 <p align="center">
   <a href="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml"><img src="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://pypi.org/project/kairoseki/"><img src="https://img.shields.io/pypi/v/kairoseki?color=0b1026&labelColor=0b1026" alt="PyPI" /></a>
+  <img src="https://img.shields.io/badge/version-0.1.0-0b1026?labelColor=0b1026" alt="Version 0.1.0" />
   <img src="https://img.shields.io/badge/python-3.10%20%E2%86%92%203.13-0b1026?labelColor=0b1026" alt="Python" />
   <img src="https://img.shields.io/badge/MCP-2024--11%20%E2%86%92%202026--07-0b1026?labelColor=0b1026" alt="MCP versions" />
   <img src="docs/assets/score.svg" alt="Kairoseki score" />
@@ -21,7 +23,7 @@ In One Piece, **kairoseki** (seastone) cancels Devil Fruit powers. Kairoseki doe
 most dangerous power: reading something an attacker wrote, and then quietly sending your data somewhere.
 
 ```bash
-pipx install kairoseki      # or: uv tool install kairoseki
+uv tool install git+https://github.com/AnthonyRiveraI/kairoseki
 kairoseki scan              # what can a single prompt injection do with your MCP setup?
 kairoseki wrap              # put every MCP server in your Claude / Cursor / VS Code config behind Kairoseki
 kairoseki attack            # replay 9 real-world attacks against your setup and get a grade
@@ -73,13 +75,39 @@ both the handshake era (`initialize`, 2024-11-05 → 2025-11-25) and the modern 
 
 ## Quickstart
 
+### 0. Prerequisites
+
+| You need | Why | How to get it |
+| :-- | :-- | :-- |
+| **[uv](https://docs.astral.sh/uv/)** (recommended) or **pipx** | Installs Kairoseki as an isolated command-line tool | macOS / Linux: `curl -LsSf https://astral.sh/uv/install.sh \| sh`<br/>Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
+| **Python 3.10+** | Kairoseki is written in Python | uv downloads a suitable Python automatically if you don't have one. With pipx, install Python yourself. |
+| **Git** | To install straight from GitHub | [git-scm.com](https://git-scm.com/downloads) |
+| **An MCP client** | Something to protect | Claude Code, Claude Desktop, Cursor, VS Code, Windsurf... |
+| **Node.js** *(optional)* | Only if your MCP servers start with `npx` | [nodejs.org](https://nodejs.org/) |
+
 ### 1. Install
 
+Kairoseki is not on PyPI yet, so install it from GitHub:
+
 ```bash
-pipx install kairoseki
-# or: uv tool install kairoseki
-# or, straight from GitHub: pipx install git+https://github.com/AnthonyRiveraI/kairoseki
+uv tool install git+https://github.com/AnthonyRiveraI/kairoseki
+# or with pipx:
+pipx install git+https://github.com/AnthonyRiveraI/kairoseki
 ```
+
+Then make sure the `kairoseki` command is on your `PATH`, and open a **new** terminal:
+
+```bash
+uv tool update-shell     # or: pipx ensurepath
+kairoseki --version      # should print: kairoseki 0.1.0
+```
+
+> **`kairoseki: command not found`, or your MCP client can't start it?** The tool lives in `~/.local/bin`
+> (`%USERPROFILE%\.local\bin` on Windows). Run `uv tool update-shell`, then fully restart your terminal **and**
+> your MCP client so they pick up the new `PATH`. `kairoseki wrap` also writes the absolute path into your config,
+> which avoids the problem entirely.
+
+To update later: `uv tool upgrade kairoseki` (or `pipx upgrade kairoseki`).
 
 ### 2. See your exposure
 
@@ -116,7 +144,7 @@ With Claude Code:
 claude mcp add fetch -- kairoseki run --name fetch -- uvx mcp-server-fetch
 ```
 
-Restart your client. That's it.
+Restart your client and check that the server connects (with Claude Code: `claude mcp get fetch`). That's it.
 
 ### 4. Try to break it
 
@@ -216,6 +244,7 @@ excellent mcp-context-protector. The two are complementary.
 
 ## Roadmap
 
+- [ ] Publish on PyPI (`pipx install kairoseki`)
 - [ ] Streamable HTTP transport
 - [ ] 🐌 Den Den Mushi: Kairoseki *calls your phone* to approve risky actions
 - [ ] OpenTelemetry export of decisions
