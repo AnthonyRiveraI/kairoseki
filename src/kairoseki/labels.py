@@ -280,6 +280,66 @@ PRIVATE_OBJECTS = {
     "salary",
     "profile",
 }
+EXPLORE_VERBS = {
+    "search",
+    "explore",
+    "find",
+    "grep",
+    "lookup",
+    "query",
+    "trace",
+    "inspect",
+    "analyze",
+    "analyse",
+    "locate",
+    "resolve",
+    "index",
+}
+# Code intelligence (code graphs, language servers, indexes): the user's own source code.
+CODE_OBJECTS = {
+    "node",
+    "nodes",
+    "context",
+    "symbol",
+    "symbols",
+    "graph",
+    "codebase",
+    "definition",
+    "definitions",
+    "reference",
+    "references",
+    "caller",
+    "callers",
+    "callee",
+    "callees",
+    "function",
+    "functions",
+    "class",
+    "classes",
+    "method",
+    "methods",
+    "module",
+    "modules",
+    "source",
+    "ast",
+    "dependency",
+    "dependencies",
+    "impact",
+    "usage",
+    "usages",
+    "outline",
+    "structure",
+    "snippet",
+    "snippets",
+    "hover",
+    "implementation",
+    "implementations",
+    "diagnostics",
+    "embedding",
+    "embeddings",
+}
+PRIVATE_OBJECTS |= CODE_OBJECTS
+
 # Objects whose creation is visible to other people (publishing = sink).
 PUBLIC_WRITE_OBJECTS = {
     "issue",
@@ -350,9 +410,23 @@ def split_name(name: str) -> list[str]:
     return [t for t in re.split(r"[^a-z0-9]+", spaced) if t]
 
 
-def classify(tool: dict[str, Any]) -> set[str]:
-    """Heuristic labels for a tool definition as found in a ``tools/list`` result."""
-    tokens = split_name(str(tool.get("name", "")))
+def strip_server_prefix(tokens: list[str], server: str) -> list[str]:
+    """``codegraph_search`` on server ``codegraph`` -> ``search``. Never strips the whole name."""
+    prefix = split_name(server) if server else []
+    if prefix and len(tokens) > len(prefix) and tokens[: len(prefix)] == prefix:
+        return tokens[len(prefix) :]
+    if prefix and len(tokens) > 1 and tokens[0] == "".join(prefix):  # server "code-graph", tool "codegraph_x"
+        return tokens[1:]
+    return tokens
+
+
+def classify(tool: dict[str, Any], server: str = "") -> set[str]:
+    """Heuristic labels for a tool definition as found in a ``tools/list`` result.
+
+    ``server`` is the name the server runs under; tools are often prefixed with it
+    (``codegraph_search``), which would otherwise hide the verb.
+    """
+    tokens = strip_server_prefix(split_name(str(tool.get("name", ""))), server)
     toks = set(tokens)
     labels: set[str] = set()
 
@@ -392,6 +466,11 @@ def classify(tool: dict[str, Any]) -> set[str]:
             labels.add(SINK)
     if ann.get("destructiveHint") is True:
         labels.add(DESTRUCTIVE)
+
+    # a bare exploratory verb ("search", "explore") with nothing else to go on: these tools
+    # look through the user's own data (code graphs, notes, indexes)
+    if not labels and toks & EXPLORE_VERBS:
+        labels.add(PRIVATE)
     return labels
 
 

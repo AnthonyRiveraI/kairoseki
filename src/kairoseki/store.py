@@ -10,7 +10,13 @@ The session key defaults to the MCP client process that started the servers (all
 Claude Code / Cursor window share it, see ``session_id.py``) and can be forced with
 ``KAIROSEKI_SESSION``.
 
-Secrets are never written to disk: only truncated SHA-256 hashes of them are stored.
+Secrets are never written to disk. A session stores 80-bit BLAKE2b fingerprints of each
+secret, of its encodings and of its 12-character fragments, indexed by a 20-bit CRC-32 tag
+of their first 8 bytes. Text fingerprints (shingles) of untrusted and private output are
+64-bit CRC-32 + Adler-32 keys of 32-character windows.
+
+Scanning a tool call is linear in its size and has no length limit (a cap would let an
+attacker pad past it); expect roughly a second per few megabytes of arguments in Python.
 """
 
 from __future__ import annotations
@@ -35,6 +41,7 @@ SESSION_TTL = 12 * 3600
 SHINGLE = 32  # chars copied verbatim from untrusted content that mark an argument as attacker-derived
 _SHINGLE_STRIDE = 8
 _MAX_SHINGLES = 60_000
+FRAGMENT = 12  # characters of a secret that count as leaking it, even when the rest is elsewhere
 _PREFIX = 8  # bytes of a secret used to find candidate positions in a tool call
 _TAG_MASK = 0xFFFFF  # only 20 bits of a prefix checksum are stored, so the index reveals ~nothing
 _MAX_SOURCES = 50
@@ -164,13 +171,24 @@ class Session:
             sources.append({"server": server, "tool": tool, "detail": detail, "ts": time.time()})
             del sources[:-_MAX_SOURCES]
 
-    def learn_secrets(self, values: list[str]) -> None:
-        if not values:
+    def learn_secrets(self, values: list[str], fragment: list[str] | None = None) -> None:
+        """Fingerprint secrets (and their encodings). Values in ``fragment`` also get every
+        ``FRAGMENT``-character piece fingerprinted, so a secret split across arguments
+        (``?a=<first half>&b=<second half>``) is still recognized."""
+        values = list(values)
+        fragment = list(fragment or [])
+        if not values and not fragment:
             return
         with self._update() as data:
             index: dict[str, list[list[Any]]] = data.setdefault("secret_index", {})
-            for value in values:
-                for v in secret_variants(value):
+            pieces = {
+                f[i : i + FRAGMENT]
+                for f in fragment
+                for i in range(len(f) - FRAGMENT + 1)
+                if len(set(f[i : i + FRAGMENT])) >= 4  # skip runs like "------------" or "AAAAAAAAAAAA"
+            }
+            for value in [*values, *fragment, *pieces]:
+                for v in secret_variants(value) if value not in pieces else {value}:
                     raw = v.encode("utf-8", "surrogatepass")
                     if len(raw) < _PREFIX:
                         continue

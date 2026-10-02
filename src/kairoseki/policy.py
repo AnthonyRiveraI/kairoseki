@@ -41,7 +41,8 @@ approval:
 #     tools:
 #       get_issue: [untrusted]               # explicit labels replace the heuristics
 #       create_or_update_file: [sink, destructive]
-#     allow: [search_repositories]           # never ask (redaction still applies)
+#     allow: [search_repositories]           # never ask (redaction still applies). Careful: allow
+#                                            # skips the lethal-trifecta rule, the main safety net
 #     deny: [delete_repository]              # always block
 """
 

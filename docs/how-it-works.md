@@ -75,10 +75,13 @@ A session records:
 
 * **untrusted sources**: tools with the `untrusted` label, plus *any* tool whose output looked like an injection
 * **private sources**: tools with the `private` label, plus any output that contained a secret
-* **secret fingerprints**: 80-bit BLAKE2b hashes of every secret and of its encodings (base64, URL-safe base64,
-  hex, URL-encoding, reversed), indexed by a 20-bit checksum of their first 8 bytes. The secrets themselves are
-  never written to disk. A tool call is scanned in one pass, at every offset and with no length limit, so padding
-  an argument cannot push a secret out of view.
+* **secret fingerprints**: 80-bit BLAKE2b hashes of every secret, of its encodings (base64, URL-safe base64,
+  hex, URL-encoding, reversed) and of every 12-character fragment of it, indexed by a 20-bit checksum of their first
+  8 bytes. Fragments catch a secret split across arguments (`?a=<first half>&b=<second half>`). Structured secrets
+  whose parts are shared by many values (JWT headers, PEM armor) are only fingerprinted whole. The secrets
+  themselves are never written to disk. A tool call is scanned in one pass, at every offset and with no length
+  limit, so padding an argument cannot push a secret out of view. The cost is linear: roughly a second per few
+  megabytes of arguments.
 * **untrusted shingles**: hashes of 32-character windows of untrusted text, used to notice when an argument
   copies attacker-provided text (reported as an extra reason, and enforced in `strict` mode)
 * **private shingles**: the same for private tool output, used to notice private data flowing into a tool that
@@ -100,6 +103,19 @@ A session records:
 9. Otherwise → **allow**
 
 `monitor` mode turns every ask and deny into an allow, but still logs it.
+
+## What fingerprints cannot catch
+
+Fingerprints are exact matching. They catch a secret copied whole, encoded in a common way, or split into pieces
+of 12 characters or more. They do **not** catch a secret interleaved character by character, run through a custom
+cipher, or described in words. That is a hard limit of matching, not a bug, and it is why the **lethal-trifecta
+rule is the real safety net**: it does not need to recognize the data at all, it only needs to know where the
+data came from.
+
+So be careful with anything that turns the trifecta rule off:
+
+* `mode: monitor` never blocks.
+* A policy `allow:` entry skips the trifecta rule for that tool. Only allow tools that cannot send data out.
 
 ## Approvals
 

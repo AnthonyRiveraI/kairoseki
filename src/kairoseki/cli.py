@@ -72,7 +72,7 @@ def _scan_entries(entries: list[tuple[str, ServerEntry]], timeout: float) -> int
             continue
         for tool in tools:
             name = str(tool.get("name"))
-            labels = classify(tool)
+            labels = classify(tool, server=entry.name)
             notes = []
             texts = [str(tool.get("description") or ""), json.dumps(tool.get("inputSchema") or {})]
             hits = sorted({h for t in texts for h in find_injection(t)})
@@ -113,25 +113,60 @@ def cmd_scan(a: argparse.Namespace) -> int:
             return 2
         for label, path in configs:
             console.print(f"[dim]reading {label}: {path}[/dim]")
-            entries += [(label, e) for e in read_servers(path)]
+            entries += [(label, e) for e in read_servers(path, all_projects=a.all_projects)]
     return _scan_entries(entries, a.timeout)
 
 
 # ---------------------------------------------------------------------------- wrap / unwrap
+def _protection_table(configs: list[tuple[str, Path]], all_projects: bool, title: str) -> tuple[Table, int, int]:
+    table = Table(title=title)
+    for col in ("server", "scope", "config", "status"):
+        table.add_column(col)
+    protected = unprotected = 0
+    for _label, path in configs:
+        try:
+            servers = read_servers(path, all_projects=all_projects)
+        except (OSError, ValueError) as e:
+            table.add_row("-", "-", str(path), f"[red]unreadable: {e}[/red]")
+            continue
+        for entry in servers:
+            if entry.url and not entry.command:
+                status = "[yellow]remote server, not supported yet[/yellow]"
+            elif entry.wrapped:
+                status = "[green]🪨 protected[/green]"
+                protected += 1
+            else:
+                status = "[red]not protected[/red]"
+                unprotected += 1
+            table.add_row(entry.name, entry.scope, str(path), status)
+    return table, protected, unprotected
+
+
 def cmd_wrap(a: argparse.Namespace) -> int:
-    configs = [Path(c) for c in a.config] if a.config else [p for _, p in candidate_configs()]
+    configs = [("--config", Path(c)) for c in a.config] if a.config else candidate_configs()
     if not configs:
         err.print("No MCP client config found. Pass --config FILE.")
         return 2
-    for path in configs:
-        changed = unwrap_config(path) if a.undo else wrap_config(path, a.policy, a.only)
+    changed_any = False
+    for _label, path in configs:
+        if a.undo:
+            changed = unwrap_config(path, all_projects=a.all_projects)
+        else:
+            changed = wrap_config(path, a.policy, a.only, all_projects=a.all_projects)
+        changed_any |= bool(changed)
         verb = "unwrapped" if a.undo else "wrapped"
         if changed:
             console.print(f"[green]{verb}[/green] {', '.join(changed)} in {path}")
-        else:
-            console.print(f"[dim]nothing to change in {path}[/dim]")
-    if not a.undo:
+    table, protected, unprotected = _protection_table(configs, a.all_projects, "MCP servers after this change")
+    console.print(table)
+    console.print(f"{protected} protected, {unprotected} not protected.")
+    if changed_any:
         console.print("Restart your MCP client so it picks up the new commands.")
+    if os.name == "nt":
+        console.print(
+            "[dim]Windows: to upgrade Kairoseki later, close your MCP client first. "
+            "uv cannot replace kairoseki.exe while a client is running it (os error 32).[/dim]"
+        )
     return 0
 
 
@@ -287,22 +322,42 @@ def cmd_log(a: argparse.Namespace) -> int:
 
 
 def cmd_status(a: argparse.Namespace) -> int:
+    from .session_id import session_alive
+
+    configs = candidate_configs()
+    if configs:
+        table, protected, unprotected = _protection_table(configs, a.all_projects, "Protection")
+        console.print(table)
+        console.print(
+            f"{protected} protected, {unprotected} not protected. Protect them with: kairoseki wrap\n"
+            if unprotected
+            else f"{protected} protected.\n"
+        )
     folder = home_dir() / "sessions"
-    files = sorted(folder.glob("*.json"), key=lambda p: p.stat().st_mtime) if folder.is_dir() else []
-    if not files:
-        console.print("No sessions yet.")
-        return 0
-    for path in files[-a.n :]:
-        data: dict[str, Any] = Session(path.stem).snapshot() or {}
-        if not data:
+    files = sorted(folder.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True) if folder.is_dir() else []
+    sessions = []
+    for path in files:
+        if path.name.endswith(".tmp") or ".json." in path.name:
             continue
+        data: dict[str, Any] = Session(path.stem).snapshot() or {}
+        if data:
+            sessions.append((path.stem, data, session_alive(path.stem)))
+    shown = [s for s in sessions if s[2] is not False] if not a.all else sessions
+    if not shown:
+        console.print("No active sessions." + (" Use --all to see ended ones." if sessions else ""))
+        return 0
+    for sid, data, alive in shown[: a.n]:
+        state = {True: "[green]● active[/green]", False: "[dim]○ ended[/dim]", None: "[dim]? unknown[/dim]"}[alive]
         untrusted = {f"{x['server']}.{x['tool']}" for x in data.get("untrusted", [])}
         private = {f"{x['server']}.{x['tool']}" for x in data.get("private", [])}
         console.print(
-            f"[bold]{path.stem}[/bold]\n  untrusted: {', '.join(sorted(untrusted)) or '-'}\n"
+            f"[bold]{sid}[/bold] {state}\n  untrusted: {', '.join(sorted(untrusted)) or '-'}\n"
             f"  private:   {', '.join(sorted(private)) or '-'}\n"
             f"  secrets fingerprinted: {sum(len(v) for v in (data.get('secret_index') or {}).values())}"
         )
+    hidden = len(sessions) - len(shown)
+    if hidden:
+        console.print(f"[dim]{hidden} ended session(s) hidden; use --all to show them.[/dim]")
     return 0
 
 
@@ -340,6 +395,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("scan", help="list your MCP tools by trifecta leg and find poisoned descriptions")
     s.add_argument("--config", action="append", help="client config file (default: auto-detect)")
     s.add_argument("--timeout", type=float, default=20.0)
+    s.add_argument("--all-projects", action="store_true", help="include Claude Code local servers of every project")
     s.add_argument("command", nargs=argparse.REMAINDER, help="optional: -- <server command> to scan one server")
     s.set_defaults(func=cmd_scan)
 
@@ -348,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
     w.add_argument("--policy", help="policy file to pin in the wrapped commands")
     w.add_argument("--only", action="append", help="only wrap these server names")
     w.add_argument("--undo", action="store_true", help="restore the original commands")
+    w.add_argument("--all-projects", action="store_true", help="include Claude Code local servers of every project")
     w.set_defaults(func=cmd_wrap)
 
     at = sub.add_parser("attack", help="replay real-world MCP attacks against Kairoseki and grade it")
@@ -381,7 +438,9 @@ def build_parser() -> argparse.ArgumentParser:
     lg.set_defaults(func=cmd_log)
 
     st = sub.add_parser("status", help="show what each session has been exposed to")
-    st.add_argument("-n", type=int, default=3)
+    st.add_argument("-n", type=int, default=5)
+    st.add_argument("--all", action="store_true", help="also show sessions whose client has exited")
+    st.add_argument("--all-projects", action="store_true", help="include Claude Code local servers of every project")
     st.set_defaults(func=cmd_status)
 
     se = sub.add_parser("session", help="show which session this process joins (all servers of a client share one)")

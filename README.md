@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml"><img src="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/version-0.1.0-0b1026?labelColor=0b1026" alt="Version 0.1.0" />
+  <img src="https://img.shields.io/badge/version-0.1.1-0b1026?labelColor=0b1026" alt="Version 0.1.1" />
   <img src="https://img.shields.io/badge/python-3.10%20%E2%86%92%203.13-0b1026?labelColor=0b1026" alt="Python" />
   <img src="https://img.shields.io/badge/MCP-2024--11%20%E2%86%92%202026--07-0b1026?labelColor=0b1026" alt="MCP versions" />
   <img src="docs/assets/score.svg" alt="Kairoseki score" />
@@ -99,7 +99,7 @@ Then make sure the `kairoseki` command is on your `PATH`, and open a **new** ter
 
 ```bash
 uv tool update-shell     # or: pipx ensurepath
-kairoseki --version      # should print: kairoseki 0.1.0
+kairoseki --version      # should print: kairoseki 0.1.1
 ```
 
 > **`kairoseki: command not found`, or your MCP client can't start it?** The tool lives in `~/.local/bin`
@@ -109,20 +109,26 @@ kairoseki --version      # should print: kairoseki 0.1.0
 
 To update later: `uv tool upgrade kairoseki` (or `pipx upgrade kairoseki`).
 
+> **Windows:** close your MCP client (or disable its Kairoseki-wrapped servers) before upgrading. While a client is
+> running `kairoseki.exe`, Windows locks the file and `uv tool upgrade` fails with *os error 32*.
+
 ### 2. See your exposure
 
 ```bash
 kairoseki scan
 ```
 
-It reads the MCP configs of Claude Desktop, Claude Code (`.mcp.json`, `~/.claude.json`), Cursor, Windsurf and
-VS Code, starts each server, and labels every tool as `private`, `untrusted`, `sink` and/or `destructive`.
+It reads the MCP configs of Claude Desktop, Claude Code, Cursor, Windsurf and VS Code, starts each server, and
+labels every tool as `private`, `untrusted`, `sink` and/or `destructive`. For Claude Code that includes project
+servers (`.mcp.json`), user servers and the current project's *local* servers in `~/.claude.json`; add
+`--all-projects` to include every project's local servers.
 
 ### 3. Wrap your servers
 
 ```bash
 kairoseki wrap            # all detected configs (a .kairoseki.bak backup is written first)
 kairoseki wrap --undo     # restore
+kairoseki status          # which servers are protected, and what each live session has seen
 ```
 
 Or wrap a single server by hand. Every client uses the same pattern, `kairoseki run --name <name> -- <original command>`:
@@ -145,6 +151,10 @@ claude mcp add fetch -- kairoseki run --name fetch -- uvx mcp-server-fetch
 ```
 
 Restart your client and check that the server connects (with Claude Code: `claude mcp get fetch`). That's it.
+
+> **Testing with `@modelcontextprotocol/server-filesystem`?** It replaces the directories you pass on its command
+> line with the client's *roots*. Claude Code sends the project directory, so the server will serve that folder,
+> not the one in your config.
 
 ### 4. Try to break it
 
@@ -209,7 +219,8 @@ Kairoseki looks for `--policy`, then `$KAIROSEKI_POLICY`, then `./kairoseki.yaml
 
 ```bash
 kairoseki log             # recent decisions, redactions and detections
-kairoseki status          # what each session has been exposed to
+kairoseki status          # protected vs unprotected servers, and live sessions (--all for ended ones)
+kairoseki session --explain  # which session this process joins, and why
 kairoseki approve         # list pending approvals
 kairoseki pins list       # servers whose tools changed since you pinned them
 kairoseki pins approve github
@@ -238,6 +249,10 @@ excellent mcp-context-protector. The two are complementary.
   They can be wrong, and the [policy](#policy) lets you fix them. Server annotations can only *add* risk, never remove it.
 * **Taint is per session and coarse on purpose.** Once untrusted content is in the context, Kairoseki assumes it may
   have influenced everything after it. That is what makes it robust, and it is why `strict` mode asks more often.
+* **Secret fingerprints are exact matching.** They catch a secret copied whole, base64/hex/URL-encoded, reversed, or
+  split into pieces of 12+ characters, but not one interleaved character by character or run through a custom
+  cipher. The lethal-trifecta rule is the safety net that does not need to recognize the data, so be careful with
+  `monitor` mode and policy `allow:` entries, which turn it off.
 * **stdio servers only** in v0.1. Streamable HTTP servers are on the roadmap.
 * **It is not a sandbox.** A malicious server binary can still do anything your user account can. Kairoseki protects
   against malicious *content*, not malicious *code*.

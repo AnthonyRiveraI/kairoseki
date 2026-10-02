@@ -64,3 +64,39 @@ def test_searching_local_files_is_not_untrusted() -> None:
     assert classify({"name": "search_files"}) == {PRIVATE}
     assert UNTRUSTED in classify({"name": "web_search"})
     assert UNTRUSTED in classify({"name": "brave_web_search"})
+
+
+CODEGRAPH = [
+    "codegraph_search",
+    "codegraph_explore",
+    "codegraph_node",
+    "codegraph_context",
+    "codegraph_callers",
+    "codegraph_callees",
+    "codegraph_symbols",
+    "codegraph_definition",
+    "codegraph_references",
+    "codegraph_impact",
+]
+
+
+def test_server_prefix_is_ignored_and_code_tools_are_private() -> None:
+    unlabeled = [n for n in CODEGRAPH if not classify({"name": n}, server="codegraph")]
+    assert unlabeled == []
+    assert classify({"name": "codegraph_search"}, server="codegraph") == {PRIVATE}
+    assert classify({"name": "codegraph_explore"}, server="code-graph") == {PRIVATE}
+
+
+def test_prefix_stripping_keeps_meaningful_names() -> None:
+    assert classify({"name": "slack_post_message"}, server="slack") == {SINK}
+    assert SINK in classify({"name": "github_create_pull_request"}, server="github")
+    assert classify({"name": "fetch"}, server="fetch") == {UNTRUSTED, SINK}  # never strips the whole name
+
+
+def test_web_search_described_tools_stay_untrusted_after_prefix_strip() -> None:
+    tool = {"name": "tavily_search", "description": "Search the web for real-time results."}
+    assert UNTRUSTED in classify(tool, server="tavily")
+
+
+def test_weather_is_still_unlabeled() -> None:
+    assert classify({"name": "get_weather"}) == set()

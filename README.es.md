@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml"><img src="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/versión-0.1.0-0b1026?labelColor=0b1026" alt="Versión 0.1.0" />
+  <img src="https://img.shields.io/badge/versión-0.1.1-0b1026?labelColor=0b1026" alt="Versión 0.1.1" />
   <img src="https://img.shields.io/badge/python-3.10%20%E2%86%92%203.13-0b1026?labelColor=0b1026" alt="Python" />
   <img src="https://img.shields.io/badge/MCP-2024--11%20%E2%86%92%202026--07-0b1026?labelColor=0b1026" alt="Versiones de MCP" />
   <img src="docs/assets/score.svg" alt="Nota de Kairoseki" />
@@ -101,7 +101,7 @@ Luego asegúrate de que el comando `kairoseki` esté en tu `PATH` y abre una ter
 
 ```bash
 uv tool update-shell     # o: pipx ensurepath
-kairoseki --version      # debe mostrar: kairoseki 0.1.0
+kairoseki --version      # debe mostrar: kairoseki 0.1.1
 ```
 
 > **¿`kairoseki: command not found`, o tu cliente MCP no lo puede iniciar?** La herramienta se instala en `~/.local/bin`
@@ -111,20 +111,27 @@ kairoseki --version      # debe mostrar: kairoseki 0.1.0
 
 Para actualizar más adelante: `uv tool upgrade kairoseki` (o `pipx upgrade kairoseki`).
 
+> **Windows:** cierra tu cliente MCP (o desactiva sus servidores protegidos con Kairoseki) antes de actualizar.
+> Mientras un cliente está usando `kairoseki.exe`, Windows bloquea el archivo y `uv tool upgrade` falla con
+> *os error 32*.
+
 ### 2. Mira tu exposición
 
 ```bash
 kairoseki scan
 ```
 
-Lee la configuración MCP de Claude Desktop, Claude Code (`.mcp.json`, `~/.claude.json`), Cursor, Windsurf y VS Code,
-inicia cada servidor y clasifica cada tool como `private`, `untrusted`, `sink` y/o `destructive`.
+Lee la configuración MCP de Claude Desktop, Claude Code, Cursor, Windsurf y VS Code, inicia cada servidor y
+clasifica cada tool como `private`, `untrusted`, `sink` y/o `destructive`. En Claude Code incluye los servidores del
+proyecto (`.mcp.json`), los de usuario y los servidores *locales* del proyecto actual en `~/.claude.json`; agrega
+`--all-projects` para incluir los servidores locales de todos los proyectos.
 
 ### 3. Protege tus servidores
 
 ```bash
 kairoseki wrap            # todas las configuraciones detectadas (primero guarda un respaldo .kairoseki.bak)
 kairoseki wrap --undo     # restaurar
+kairoseki status          # qué servidores están protegidos y qué ha visto cada sesión activa
 ```
 
 O protege un solo servidor a mano. Todos los clientes usan el mismo patrón, `kairoseki run --name <nombre> -- <comando original>`:
@@ -147,6 +154,10 @@ claude mcp add fetch -- kairoseki run --name fetch -- uvx mcp-server-fetch
 ```
 
 Reinicia tu cliente y comprueba que el servidor conecta (en Claude Code: `claude mcp get fetch`). Eso es todo.
+
+> **¿Pruebas con `@modelcontextprotocol/server-filesystem`?** Ese servidor reemplaza las carpetas que le pasas por
+> línea de comandos con los *roots* del cliente. Claude Code envía la carpeta del proyecto, así que el servidor
+> usará esa carpeta y no la de tu configuración.
 
 ### 4. Intenta romperlo
 
@@ -212,7 +223,8 @@ Kairoseki busca la política en `--policy`, luego en `$KAIROSEKI_POLICY`, luego 
 
 ```bash
 kairoseki log             # decisiones, ocultamientos y detecciones recientes
-kairoseki status          # a qué ha estado expuesta cada sesión
+kairoseki status          # servidores protegidos y no protegidos, y sesiones activas (--all para las terminadas)
+kairoseki session --explain  # a qué sesión se une este proceso y por qué
 kairoseki approve         # lista las aprobaciones pendientes
 kairoseki pins list       # servidores cuyas tools cambiaron desde que las fijaste
 kairoseki pins approve github
@@ -243,6 +255,10 @@ mcp-context-protector de Trail of Bits. Las dos herramientas se complementan.
 * **El rastreo es por sesión y deliberadamente amplio.** Una vez que entra contenido no confiable al contexto,
   Kairoseki asume que pudo influir en todo lo que viene después. Eso lo hace robusto, y es la razón por la que el modo
   `strict` pregunta más seguido.
+* **Las huellas de secretos son coincidencia exacta.** Detectan un secreto copiado entero, codificado en
+  base64/hex/URL, al revés o partido en trozos de 12 caracteres o más, pero no uno intercalado carácter por carácter
+  o pasado por un cifrado propio. La regla de la tríada letal es la red de seguridad, porque no necesita reconocer el
+  dato. Ten cuidado con el modo `monitor` y con las entradas `allow:` de la política, que la desactivan.
 * **Solo servidores stdio** en la v0.1. Los servidores Streamable HTTP están en el roadmap.
 * **No es un sandbox.** Un binario de servidor malicioso igual puede hacer todo lo que permita tu usuario. Kairoseki
   protege contra *contenido* malicioso, no contra *código* malicioso.

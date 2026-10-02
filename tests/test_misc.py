@@ -148,3 +148,94 @@ def test_cli_rejects_bad_policy(tmp_path: Path) -> None:
 def test_cli_log_and_status_and_pins_work_when_empty() -> None:
     for args in (["log"], ["status"], ["pins", "list"], ["approve"]):
         assert cli(*args).returncode == 0, args
+
+
+# ---------------------------------------------------------------------------- Claude Code local scope
+
+
+def _claude_json(tmp_path: Path, project_key: str) -> Path:
+    cfg = tmp_path / ".claude.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "numStartups": 12,
+                "mcpServers": {"fetch": {"command": "uvx", "args": ["mcp-server-fetch"]}},
+                "projects": {
+                    project_key: {
+                        "allowedTools": [],
+                        "mcpServers": {"filesystem": {"type": "stdio", "command": "npx", "args": ["-y", "fs", "."]}},
+                    },
+                    "C:/Users/Neo/other": {"mcpServers": {"other": {"command": "node", "args": ["x.js"]}}},
+                },
+            }
+        )
+    )
+    return cfg
+
+
+def test_local_scope_servers_of_the_current_project_are_read(tmp_path: Path) -> None:
+    project = tmp_path / "proj"
+    project.mkdir()
+    cfg = _claude_json(tmp_path, str(project).replace("\\", "/"))
+    names = {(s.name, s.scope) for s in read_servers(cfg, cwd=project)}
+    assert ("fetch", "user") in names
+    assert any(n == "filesystem" and scope.startswith("local") for n, scope in names)
+    assert all(n != "other" for n, _ in names)  # another project's servers are not touched by default
+    assert any(n == "other" for n, _ in {(s.name, s.scope) for s in read_servers(cfg, cwd=project, all_projects=True)})
+
+
+def test_windows_project_keys_match_regardless_of_slashes_and_case() -> None:
+    from kairoseki.configs import same_project
+
+    assert same_project("C:/Users/Neo/proj", r"c:\users\neo\proj")
+    assert same_project("C:/Users/Neo/proj/", "C:/Users/Neo/proj")
+    assert not same_project("/home/neo/proj", "/home/neo/Proj")  # POSIX paths stay case-sensitive
+
+
+def test_wrap_and_unwrap_local_scope(tmp_path: Path) -> None:
+    project = tmp_path / "proj"
+    project.mkdir()
+    cfg = _claude_json(tmp_path, str(project))
+    original = json.loads(cfg.read_text())
+    assert sorted(wrap_config(cfg, cwd=project)) == ["fetch", "filesystem"]
+    data = json.loads(cfg.read_text())
+    fs = data["projects"][str(project)]["mcpServers"]["filesystem"]
+    assert is_wrapped(fs["command"], fs["args"]) and fs["type"] == "stdio"
+    assert data["numStartups"] == 12 and data["projects"][str(project)]["allowedTools"] == []
+    assert data["projects"]["C:/Users/Neo/other"] == original["projects"]["C:/Users/Neo/other"]
+    assert sorted(unwrap_config(cfg, cwd=project)) == ["fetch", "filesystem"]
+    assert json.loads(cfg.read_text()) == original
+
+
+def test_session_alive() -> None:
+    from kairoseki.session_id import client_session_id, session_alive
+
+    assert session_alive(client_session_id()) is True  # our own client (the test runner's parent) is alive
+    assert session_alive("proc-999999999-1") is False
+    assert session_alive("lab-abc123") is None
+
+
+def test_wrap_prints_a_protection_summary_and_status_lists_it(tmp_path: Path) -> None:
+    import os
+
+    home = tmp_path / "home"
+    home.mkdir()
+    (tmp_path / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+                    "remote": {"url": "https://mcp.example.com/mcp"},
+                }
+            }
+        )
+    )
+    env = {**os.environ, "HOME": str(home), "USERPROFILE": str(home), "COLUMNS": "200"}
+    before = subprocess.run(kairoseki_argv("status"), capture_output=True, encoding="utf-8", cwd=tmp_path, env=env)
+    assert "not protected" in before.stdout and "0 protected, 1 not protected" in before.stdout
+    assert "project" in before.stdout  # .mcp.json is Claude Code's project scope
+    wrapped = subprocess.run(kairoseki_argv("wrap"), capture_output=True, encoding="utf-8", cwd=tmp_path, env=env)
+    assert "1 protected, 0 not protected" in wrapped.stdout, wrapped.stdout
+    assert "remote server, not supported yet" in wrapped.stdout
+    after = subprocess.run(kairoseki_argv("status"), capture_output=True, encoding="utf-8", cwd=tmp_path, env=env)
+    assert "1 protected." in after.stdout

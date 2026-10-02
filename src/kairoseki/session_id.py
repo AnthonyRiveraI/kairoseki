@@ -244,3 +244,19 @@ def client_session_id(trace: list[str] | None = None) -> str:
         return f"ppid-{os.getppid()}"
     start = "".join(c for c in client.start if c.isalnum())
     return f"proc-{client.pid}" + (f"-{start}" if start else "")
+
+
+def session_alive(session_id: str) -> bool | None:
+    """Is the client behind ``proc-<pid>-<start>`` / ``ppid-<pid>`` still running? None if unknown."""
+    parts = session_id.split("-")
+    if len(parts) < 2 or parts[0] not in ("proc", "ppid") or not parts[1].isdigit():
+        return None  # forced with KAIROSEKI_SESSION, or a lab session
+    try:
+        proc = _reader()(int(parts[1]))
+    except Exception:
+        return None
+    if proc is None:
+        return False
+    if parts[0] == "proc" and len(parts) > 2:
+        return "".join(c for c in proc.start if c.isalnum()) == "-".join(parts[2:])
+    return True
