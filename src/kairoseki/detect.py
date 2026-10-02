@@ -75,7 +75,7 @@ _INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
         (
             "exfil_directive",
-            r"\b(send|post|upload|forward|leak|exfiltrate|email)\b[^.\n]{0,60}\b(https?://|to\s+[\w.+-]+@[\w-]+\.[\w.]+|webhook|attacker)",
+            r"\b(send|post|upload|forward|leak|exfiltrate)\b[^.\n]{0,60}\b(https?://|to\s+[\w.+-]+@[\w-]+\.[\w.]+|webhook|attacker)",
         ),
         (
             "secret_seeking",

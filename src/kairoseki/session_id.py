@@ -40,17 +40,23 @@ def _norm(path: str) -> str:
 
 
 def _own_interpreters() -> set[str]:
-    paths = {sys.executable, getattr(sys, "_base_executable", "") or ""}
-    return {_norm(p) for p in paths if p}
+    return {p for p in (sys.executable, getattr(sys, "_base_executable", "") or "") if p}
+
+
+def _name(path: str) -> str:
+    name = os.path.basename(path.replace("\\", "/")).lower()
+    return name[:-4] if name.endswith(".exe") else name
 
 
 def is_launcher(proc: Proc, interpreters: set[str]) -> bool:
-    name = os.path.basename(proc.exe.replace("\\", "/")).lower()
-    if name.endswith(".exe"):
-        name = name[:-4]
+    """Is ``proc`` part of Kairoseki's own launch chain? ``interpreters`` may be raw or normalized paths."""
+    name = _name(proc.exe)
     if name in _LAUNCHER_NAMES or name.startswith("kairoseki"):
         return True
-    return _norm(proc.exe) in interpreters
+    if "/" not in proc.exe and "\\" not in proc.exe:
+        # only an executable name is known (e.g. `ps -o comm=` on some systems): compare names
+        return name in {_name(i) for i in interpreters}
+    return _norm(proc.exe) in {_norm(i) for i in interpreters}
 
 
 # ---------------------------------------------------------------------------- platform readers
@@ -88,7 +94,22 @@ def _ps(pid: int) -> Proc | None:
     parts = out.split(None, 6)  # ppid, 5 lstart tokens ("Fri Oct  2 17:30:00 2026"), comm
     if len(parts) < 7 or not parts[0].isdigit():
         return None
-    return Proc(pid=pid, ppid=int(parts[0]), exe=parts[6], start=" ".join(parts[1:6]))
+    exe = _darwin_path(pid) if sys.platform == "darwin" else ""
+    return Proc(pid=pid, ppid=int(parts[0]), exe=exe or parts[6], start=" ".join(parts[1:6]))
+
+
+def _darwin_path(pid: int) -> str:
+    """Full executable path from libproc; `ps -o comm=` may only give the name."""
+    try:
+        import ctypes
+
+        libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+        buf = ctypes.create_string_buffer(4096)
+        if libproc.proc_pidpath(pid, buf, ctypes.sizeof(buf)) > 0:
+            return buf.value.decode("utf-8", "replace")
+    except (OSError, AttributeError, ValueError):
+        pass
+    return ""
 
 
 def _windows_reader() -> Callable[[int], Proc | None]:
@@ -174,7 +195,7 @@ def _reader() -> Callable[[int], Proc | None]:
 
 def find_client(read: Callable[[int], Proc | None], pid: int, interpreters: set[str]) -> Proc | None:
     """Walk up from ``pid`` and return the first ancestor that is not one of our launchers."""
-    interpreters = {_norm(i) for i in interpreters}
+    interpreters = set(interpreters) | {_norm(i) for i in interpreters}
     current = read(pid)
     for _ in range(_MAX_DEPTH):
         if current is None or current.ppid <= 0 or current.ppid == current.pid:

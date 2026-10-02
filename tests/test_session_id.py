@@ -71,3 +71,26 @@ def test_ps_reader_when_available() -> None:
         pytest.skip("no ps")
     me = _ps(os.getpid())
     assert me is not None and me.ppid == os.getppid() and me.start
+
+
+def test_name_only_executables_are_matched_by_name() -> None:
+    # `ps -o comm=` can return just "python3.13" instead of a path
+    read = table(
+        Proc(50, 1, "Claude", "10"),
+        Proc(60, 50, "python3.13", "20"),
+        Proc(70, 60, "python3.13", "30"),
+    )
+    assert find_client(read, 70, {"/opt/uv/python/bin/python3.13"}).pid == 50
+
+
+def test_darwin_path_when_on_macos() -> None:
+    import os
+    import sys
+
+    import pytest
+
+    from kairoseki.session_id import _darwin_path
+
+    if sys.platform != "darwin":
+        pytest.skip("macOS only")
+    assert os.path.isabs(_darwin_path(os.getpid()))
