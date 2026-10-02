@@ -94,3 +94,17 @@ def test_darwin_path_when_on_macos() -> None:
     if sys.platform != "darwin":
         pytest.skip("macOS only")
     assert os.path.isabs(_darwin_path(os.getpid()))
+
+
+def test_macos_framework_reexec_is_recognized() -> None:
+    # seen on GitHub's macOS runners: the interpreter re-execs into Python.app, so neither
+    # sys.executable nor sys._base_executable equals the binary the OS reports
+    app = "/Library/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python"
+    read = table(
+        Proc(1206, 1, "/Users/runner/.local/bin/uv", "1"),
+        Proc(1500, 1206, "/usr/local/bin/claude", "2"),
+        Proc(1880, 1500, app, "3"),  # per-server launcher
+        Proc(1887, 1880, app, "4"),  # us
+    )
+    own = {"/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13", "/project/.venv/bin/python"}
+    assert find_client(read, 1887, own).pid == 1500

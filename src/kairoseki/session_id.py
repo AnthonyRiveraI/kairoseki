@@ -204,6 +204,10 @@ def find_client(
     log = trace.append if trace is not None else (lambda _line: None)
     current = read(pid)
     log(f"self    {current}")
+    if current is not None and ("/" in current.exe or "\\" in current.exe):
+        # the binary actually running us: catches re-exec, e.g. macOS framework builds run
+        # .../Python.framework/.../Python.app/Contents/MacOS/Python instead of bin/python3.x
+        interpreters |= {current.exe, _norm(current.exe)}
     for _ in range(_MAX_DEPTH):
         if current is None or current.ppid <= 0 or current.ppid == current.pid:
             log("stop: no parent")

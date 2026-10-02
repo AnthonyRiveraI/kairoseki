@@ -66,7 +66,7 @@ def file_lock(path: Path, timeout: float = 5.0, stale: float = 10.0) -> Iterator
             fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             os.close(fd)
             break
-        except FileExistsError:
+        except (FileExistsError, PermissionError):  # Windows reports a lock file being deleted as EACCES
             with contextlib.suppress(OSError):
                 if time.time() - lock.stat().st_mtime > stale:
                     lock.unlink()
@@ -86,15 +86,28 @@ def _atomic_write(path: Path, data: dict[str, Any]) -> None:
     tmp.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     with contextlib.suppress(OSError):
         os.chmod(tmp, 0o600)
-    os.replace(tmp, path)
+    # Windows refuses to replace a file another process has open for reading; retry briefly
+    for attempt in range(200):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == 199:
+                raise
+            time.sleep(0.01)
 
 
 def _read(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-    return data if isinstance(data, dict) else {}
+    for _ in range(200):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+        except PermissionError:  # Windows: the file is being replaced right now
+            time.sleep(0.01)
+            continue
+        return data if isinstance(data, dict) else {}
+    return {}
 
 
 def default_session_id() -> str:
