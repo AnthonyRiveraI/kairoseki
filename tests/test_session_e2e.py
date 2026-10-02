@@ -9,6 +9,8 @@ Here every server is started through its own intermediate process to reproduce t
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -41,9 +43,12 @@ def _wrapped(role: str, world: Path, log: Path) -> list[str]:
         "--log",
         str(log),
     ]
-    # an intermediate launcher process per server, like kairoseki.exe / the venv redirector on Windows
-    launcher = f"import subprocess, sys; sys.exit(subprocess.call({inner!r}))"
-    return [sys.executable, "-c", launcher]
+    return _launcher(inner)
+
+
+def _launcher(inner: list[str]) -> list[str]:
+    """An intermediate process per server, like kairoseki.exe / the venv redirector on Windows."""
+    return [sys.executable, "-c", f"import subprocess, sys; sys.exit(subprocess.call({inner!r}))"]
 
 
 def test_trifecta_closes_across_servers_started_through_launchers(tmp_path: Path, no_forced_session: None) -> None:
@@ -70,6 +75,16 @@ def test_trifecta_closes_across_servers_started_through_launchers(tmp_path: Path
     finally:
         for c in clients.values():
             c.close()
-    assert reply.get("isError") and "lethal_trifecta" in result_text(reply), result_text(reply)
+    if not (reply.get("isError") and "lethal_trifecta" in result_text(reply)):
+        sessions = sorted(p.name for p in (Path(os.environ["KAIROSEKI_HOME"]) / "sessions").glob("*.json"))
+        explain = subprocess.run(
+            _launcher([sys.executable, "-m", "kairoseki", "session", "--explain"]),
+            capture_output=True,
+            encoding="utf-8",
+            timeout=60,
+        )
+        pytest.fail(
+            f"trifecta did not close: {result_text(reply)}\nsessions: {sessions}\n{explain.stdout}{explain.stderr}"
+        )
     sent = [json.loads(x) for x in log.read_text().splitlines() if '"send_email"' in x]
     assert sent == []

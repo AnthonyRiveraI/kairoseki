@@ -306,6 +306,22 @@ def cmd_status(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_session(a: argparse.Namespace) -> int:
+    from .session_id import client_session_id
+    from .store import default_session_id
+
+    trace: list[str] = []
+    detected = client_session_id(trace)
+    print(f"session: {default_session_id()}")
+    if os.environ.get("KAIROSEKI_SESSION"):
+        print("(forced with KAIROSEKI_SESSION)")
+    if a.explain:
+        print(f"detected from the process tree: {detected}")
+        for line in trace:
+            print(f"  {line}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="kairoseki", description="🪨 Seastone for your AI agents: an MCP firewall.")
     p.add_argument("--version", action="version", version=f"kairoseki {__version__}")
@@ -367,6 +383,10 @@ def build_parser() -> argparse.ArgumentParser:
     st = sub.add_parser("status", help="show what each session has been exposed to")
     st.add_argument("-n", type=int, default=3)
     st.set_defaults(func=cmd_status)
+
+    se = sub.add_parser("session", help="show which session this process joins (all servers of a client share one)")
+    se.add_argument("--explain", action="store_true", help="show the process-tree walk")
+    se.set_defaults(func=cmd_session)
     return p
 
 

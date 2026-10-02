@@ -193,30 +193,48 @@ def _reader() -> Callable[[int], Proc | None]:
 # ---------------------------------------------------------------------------- walk
 
 
-def find_client(read: Callable[[int], Proc | None], pid: int, interpreters: set[str]) -> Proc | None:
-    """Walk up from ``pid`` and return the first ancestor that is not one of our launchers."""
+def find_client(
+    read: Callable[[int], Proc | None], pid: int, interpreters: set[str], trace: list[str] | None = None
+) -> Proc | None:
+    """Walk up from ``pid`` and return the first ancestor that is not one of our launchers.
+
+    ``trace``, if given, receives one human-readable line per step (``kairoseki session``).
+    """
     interpreters = set(interpreters) | {_norm(i) for i in interpreters}
+    log = trace.append if trace is not None else (lambda _line: None)
     current = read(pid)
+    log(f"self    {current}")
     for _ in range(_MAX_DEPTH):
         if current is None or current.ppid <= 0 or current.ppid == current.pid:
+            log("stop: no parent")
             return current
         parent = read(current.ppid)
         if parent is None:
+            log(f"stop: cannot read parent {current.ppid}")
             return current
         # a parent created after its child means the real parent died and its pid was reused
         if parent.start.isdigit() and current.start.isdigit() and int(parent.start) > int(current.start):
+            log(f"stop: parent {parent.pid} is newer than its child (pid reused)")
             return current
         if not is_launcher(parent, interpreters):
+            log(f"client  {parent}")
             return parent
+        log(f"skip    {parent}")
         current = parent
+    log("stop: max depth")
     return current
 
 
-def client_session_id() -> str:
+def client_session_id(trace: list[str] | None = None) -> str:
     """``proc-<pid>-<start>`` of the MCP client process; falls back to the parent pid."""
     try:
-        client = find_client(_reader(), os.getpid(), _own_interpreters())
-    except Exception:  # never let process inspection break the proxy
+        interpreters = _own_interpreters()
+        if trace is not None:
+            trace.append(f"interpreters {sorted(interpreters | {_norm(i) for i in interpreters})}")
+        client = find_client(_reader(), os.getpid(), interpreters, trace)
+    except Exception as e:  # never let process inspection break the proxy
+        if trace is not None:
+            trace.append(f"error: {e!r}")
         client = None
     if client is None or client.pid == os.getpid():
         return f"ppid-{os.getppid()}"
