@@ -1,0 +1,28 @@
+# Kairoseki policy - https://github.com/AnthonyRiveraI/kairoseki
+#
+# mode:
+#   monitor  - never block, only log what would have been blocked (good for a first week)
+#   balanced - block exfiltration, ask before the lethal trifecta closes (default)
+#   strict   - also ask before any sink or destructive tool once untrusted content was read
+mode: balanced
+
+redact:
+  secrets: true   # API keys, tokens and private keys never reach the model
+  pii: false      # emails, phone numbers and card numbers
+
+pin_tools: true             # trust-on-first-use: block tools whose definition changes later
+block_poisoned_tools: true  # block tools whose description contains prompt-injection text
+warn_on_injection: true     # prepend a warning to tool output that looks like instructions
+
+approval:
+  timeout_seconds: 120  # how long to wait for an in-client approval prompt
+  ttl_seconds: 600      # how long a `kairoseki approve <id>` stays valid
+
+# Per-server overrides. Keys are the --name you give `kairoseki run` (globs allowed).
+# servers:
+#   github:
+#     tools:
+#       get_issue: [untrusted]               # explicit labels replace the heuristics
+#       create_or_update_file: [sink, destructive]
+#     allow: [search_repositories]           # never ask (redaction still applies)
+#     deny: [delete_repository]              # always block

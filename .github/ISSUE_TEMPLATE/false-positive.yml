@@ -1,0 +1,21 @@
+name: 🧭 False positive
+description: Kairoseki blocked or asked about something that was safe
+labels: ["false-positive"]
+body:
+  - type: input
+    id: server
+    attributes:
+      label: MCP server and tool
+      placeholder: "@modelcontextprotocol/server-github / create_pull_request"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Output of `kairoseki log -n 20`
+      description: Please remove anything private
+      render: text
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?

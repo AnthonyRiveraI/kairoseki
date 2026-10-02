@@ -1,0 +1,150 @@
+"""Policy parsing, shared session store, client configs and the CLI."""
+
+from __future__ import annotations
+
+import json
+import multiprocessing
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from kairoseki.configs import is_wrapped, read_servers, unwrap_config, wrap_config
+from kairoseki.policy import DEFAULT_POLICY_YAML, PolicyError, load_policy, parse_policy
+from kairoseki.store import Session
+
+from .conftest import kairoseki_argv
+
+# ---------------------------------------------------------------------------- policy
+
+
+def test_default_policy_file_parses_to_defaults(tmp_path: Path) -> None:
+    path = tmp_path / "k.yaml"
+    path.write_text(DEFAULT_POLICY_YAML)
+    p = load_policy(path)
+    assert p.mode == "balanced" and p.redact_secrets and not p.redact_pii and p.pin_tools
+
+
+@pytest.mark.parametrize(
+    "data",
+    [{"mode": "yolo"}, {"redact": {"secrets": "yes"}}, {"servers": {"gh": {"tools": {"x": ["superpower"]}}}}],
+)
+def test_invalid_policies_are_rejected(data: dict) -> None:
+    with pytest.raises(PolicyError):
+        parse_policy(data)
+
+
+def test_missing_policy_file_is_an_error(tmp_path: Path) -> None:
+    with pytest.raises(PolicyError):
+        load_policy(tmp_path / "nope.yaml")
+
+
+def test_server_globs() -> None:
+    p = parse_policy({"servers": {"git*": {"deny": ["delete_*"]}}})
+    assert p.is_denied("github", "delete_repo") and not p.is_denied("slack", "delete_repo")
+
+
+# ---------------------------------------------------------------------------- shared session
+
+
+def _mark(args: tuple[str, str, int]) -> None:
+    home, session, i = args
+    import os
+
+    os.environ["KAIROSEKI_HOME"] = home
+    Session(session).mark("untrusted", f"srv{i}", "tool")
+
+
+def test_concurrent_proxies_never_lose_updates(isolated_home: Path) -> None:
+    with multiprocessing.get_context("spawn").Pool(8) as pool:
+        pool.map(_mark, [(str(isolated_home), "shared", i) for i in range(40)])
+    sources = Session("shared").snapshot()["untrusted"]
+    assert len(sources) == 40
+
+
+# ---------------------------------------------------------------------------- configs
+
+
+def test_wrap_and_unwrap_roundtrip(tmp_path: Path) -> None:
+    cfg = tmp_path / "claude_desktop_config.json"
+    original = {
+        "mcpServers": {
+            "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+            "github": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"], "env": {"T": "x"}},
+            "remote": {"url": "https://mcp.example.com/mcp"},
+        },
+        "otherSetting": True,
+    }
+    cfg.write_text(json.dumps(original))
+    assert sorted(wrap_config(cfg)) == ["fetch", "github"]
+    wrapped = json.loads(cfg.read_text())
+    gh = wrapped["mcpServers"]["github"]
+    assert is_wrapped(gh["command"], gh["args"]) and gh["env"] == {"T": "x"}
+    assert gh["args"][-3:] == ["npx", "-y", "@modelcontextprotocol/server-github"]
+    assert wrapped["mcpServers"]["remote"] == {"url": "https://mcp.example.com/mcp"}
+    assert wrap_config(cfg) == []  # idempotent
+    assert (tmp_path / "claude_desktop_config.json.kairoseki.bak").exists()
+    assert sorted(unwrap_config(cfg)) == ["fetch", "github"]
+    assert json.loads(cfg.read_text()) == original
+
+
+def test_vscode_servers_key(tmp_path: Path) -> None:
+    cfg = tmp_path / "mcp.json"
+    cfg.write_text(json.dumps({"servers": {"fs": {"command": "npx", "args": ["fs"]}}}))
+    assert [s.name for s in read_servers(cfg)] == ["fs"]
+    assert wrap_config(cfg) == ["fs"]
+
+
+# ---------------------------------------------------------------------------- CLI
+
+
+def cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(kairoseki_argv(*args), capture_output=True, text=True, cwd=cwd, timeout=120)
+
+
+def test_cli_init_writes_valid_policy(tmp_path: Path) -> None:
+    assert cli("init", cwd=tmp_path).returncode == 0
+    assert load_policy(tmp_path / "kairoseki.yaml").mode == "balanced"
+    assert cli("init", cwd=tmp_path).returncode == 1  # refuses to overwrite
+
+
+def test_cli_scan_finds_poison_and_trifecta(tmp_path: Path) -> None:
+    lab = [sys.executable, "-m", "kairoseki.lab.server", "--role"]
+    cfg = tmp_path / "mcp.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "web": {"command": lab[0], "args": [*lab[1:], "web"]},
+                    "files": {"command": lab[0], "args": [*lab[1:], "files"]},
+                    "evil": {"command": lab[0], "args": [*lab[1:], "poisoned"]},
+                }
+            }
+        )
+    )
+    r = cli("scan", "--config", str(cfg))
+    assert r.returncode == 1
+    assert "poisoned description" in r.stdout
+    assert "Lethal trifecta present" in r.stdout
+
+
+def test_cli_scan_single_clean_server() -> None:
+    r = cli("scan", "--", sys.executable, "-m", "kairoseki.lab.server", "--role", "files")
+    assert r.returncode == 0 and "No lethal trifecta" in r.stdout
+
+
+def test_cli_run_requires_a_command() -> None:
+    assert cli("run").returncode == 2
+
+
+def test_cli_rejects_bad_policy(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("mode: yolo\n")
+    r = cli("run", "--policy", str(bad), "--", sys.executable, "-c", "pass")
+    assert r.returncode == 2 and "mode must be one of" in r.stderr
+
+
+def test_cli_log_and_status_and_pins_work_when_empty() -> None:
+    for args in (["log"], ["status"], ["pins", "list"], ["approve"]):
+        assert cli(*args).returncode == 0, args

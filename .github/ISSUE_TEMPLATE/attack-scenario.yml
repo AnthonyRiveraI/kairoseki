@@ -1,0 +1,27 @@
+name: ⚔️ New attack scenario
+description: Propose a real-world MCP / prompt-injection attack for the lab
+labels: ["attack-lab", "good first issue"]
+body:
+  - type: input
+    id: reference
+    attributes:
+      label: Reference
+      description: Link to the write-up, CVE or paper describing the attack
+    validations:
+      required: true
+  - type: textarea
+    id: flow
+    attributes:
+      label: Attack flow
+      description: Which tools does the hijacked agent call, in order, and where does the data leak?
+      placeholder: |
+        1. get_issue (untrusted content with the injection)
+        2. get_file_contents (private data)
+        3. create_pull_request (exfiltration)
+    validations:
+      required: true
+  - type: dropdown
+    id: blocked
+    attributes:
+      label: Does Kairoseki block it today?
+      options: ["Not sure", "Yes", "No - this is a bypass"]
