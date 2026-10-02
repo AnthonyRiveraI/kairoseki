@@ -301,7 +301,7 @@ def cmd_status(a: argparse.Namespace) -> int:
         console.print(
             f"[bold]{path.stem}[/bold]\n  untrusted: {', '.join(sorted(untrusted)) or '-'}\n"
             f"  private:   {', '.join(sorted(private)) or '-'}\n"
-            f"  secrets fingerprinted: {sum(len(v) for v in (data.get('secrets') or {}).values())}"
+            f"  secrets fingerprinted: {sum(len(v) for v in (data.get('secret_index') or {}).values())}"
         )
     return 0
 

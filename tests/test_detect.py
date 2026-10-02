@@ -110,3 +110,14 @@ def test_pii_redaction() -> None:
 def test_pii_keeps_non_luhn_numbers() -> None:
     text, _ = detect.redact_pii("order 1234567890123")
     assert "1234567890123" in text
+
+
+def test_assignment_names_need_a_word_boundary() -> None:
+    env_file = "PWD=/home/nami/projects\nMONKEY_D_LUFFY=gomugomu-no-mi\nPATH=/usr/local/bin:/usr/bin\n"
+    assert detect.find_secrets(env_file) == []
+    assert detect.find_secrets("STRIPE_API_KEY=abcdefgh12345")[0].value == "abcdefgh12345"
+
+
+def test_npm_tokens() -> None:
+    token = "npm_" + "a1B2" * 9
+    assert detect.find_secrets(f"//registry.npmjs.org/:_authToken={token}")[0].kind == "npm_token"

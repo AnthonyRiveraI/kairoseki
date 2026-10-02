@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,7 +18,6 @@ from .store import Approvals, Audit, PinStore, Session
 
 ALLOW, ASK, DENY = "allow", "ask", "deny"
 
-_SECRET_ENV_NAME = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH|PAT)", re.I)
 POISONED_PLACEHOLDER = (
     "[Kairoseki removed this tool's description because it contained prompt-injection text. "
     "The tool is blocked. Run `kairoseki log` for details.]"
@@ -85,9 +83,7 @@ class Engine:
         self.poisoned: dict[str, list[str]] = {}
         self.changed: set[str] = set()
         env_secrets = [
-            v
-            for k, v in (env if env is not None else dict(os.environ)).items()
-            if _SECRET_ENV_NAME.search(k) and len(v) >= 8 and not v.startswith(("/", "http"))
+            v for k, v in (env if env is not None else dict(os.environ)).items() if detect.is_secret_assignment(k, v)
         ]
         self.session.learn_secrets(env_secrets)
 

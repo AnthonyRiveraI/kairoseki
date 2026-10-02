@@ -6,8 +6,9 @@ untrusted web page comes from one, the private file from another, the exfiltrati
 through a third. So taint lives in a small JSON file keyed by session, guarded by a lock
 file, that all proxies of the same agent read and update.
 
-The session key defaults to the parent process id (all servers of one Claude Code / Cursor
-window are children of the same process) and can be forced with ``KAIROSEKI_SESSION``.
+The session key defaults to the MCP client process that started the servers (all servers of one
+Claude Code / Cursor window share it, see ``session_id.py``) and can be forced with
+``KAIROSEKI_SESSION``.
 
 Secrets are never written to disk: only truncated SHA-256 hashes of them are stored.
 """
@@ -22,22 +23,30 @@ import os
 import secrets
 import time
 import urllib.parse
+import zlib
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from .policy import home_dir
+from .session_id import client_session_id
 
 SESSION_TTL = 12 * 3600
 SHINGLE = 32  # chars copied verbatim from untrusted content that mark an argument as attacker-derived
 _SHINGLE_STRIDE = 8
 _MAX_SHINGLES = 60_000
+_PREFIX = 8  # bytes of a secret used to find candidate positions in a tool call
+_TAG_MASK = 0xFFFFF  # only 20 bits of a prefix checksum are stored, so the index reveals ~nothing
 _MAX_SOURCES = 50
 
 
 def digest(value: str) -> str:
-    """Short keyed-free fingerprint (80 bits). Only fingerprints of secrets ever touch disk."""
-    return hashlib.blake2b(value.encode("utf-8", "surrogatepass"), digest_size=10).hexdigest()
+    """Short fingerprint (80 bits). Only fingerprints of secrets ever touch disk."""
+    return _digest_bytes(value.encode("utf-8", "surrogatepass"))
+
+
+def _digest_bytes(value: bytes | memoryview) -> str:
+    return hashlib.blake2b(value, digest_size=10).hexdigest()
 
 
 def _private_dir(path: Path) -> Path:
@@ -89,16 +98,11 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 def default_session_id() -> str:
+    """``$KAIROSEKI_SESSION`` if set, otherwise the MCP client process (see ``session_id.py``)."""
     env = os.environ.get("KAIROSEKI_SESSION")
     if env:
         return "".join(c for c in env if c.isalnum() or c in "-_")[:64] or "default"
-    ppid = os.getppid()
-    start = ""
-    with contextlib.suppress(OSError, IndexError):
-        # field 22 of /proc/<pid>/stat is the start time; guards against pid reuse on Linux
-        stat = Path(f"/proc/{ppid}/stat").read_text()
-        start = stat.rsplit(")", 1)[1].split()[19]
-    return f"ppid-{ppid}" + (f"-{start}" if start else "")
+    return client_session_id()
 
 
 def secret_variants(value: str) -> set[str]:
@@ -129,7 +133,7 @@ class Session:
             data = _read(self.path)
             now = time.time()
             if not data or now - data.get("updated", now) > SESSION_TTL:
-                data = {"created": now, "untrusted": [], "private": [], "secrets": {}, "shingles": []}
+                data = {"created": now, "untrusted": [], "private": [], "secret_index": {}, "shingles": []}
             yield data
             data["updated"] = now
             _atomic_write(self.path, data)
@@ -151,13 +155,16 @@ class Session:
         if not values:
             return
         with self._update() as data:
-            table: dict[str, list[str]] = data.setdefault("secrets", {})
+            index: dict[str, list[list[Any]]] = data.setdefault("secret_index", {})
             for value in values:
                 for v in secret_variants(value):
-                    bucket = table.setdefault(str(len(v)), [])
-                    h = digest(v)
-                    if h not in bucket:
-                        bucket.append(h)
+                    raw = v.encode("utf-8", "surrogatepass")
+                    if len(raw) < _PREFIX:
+                        continue
+                    bucket = index.setdefault(str(zlib.crc32(raw[:_PREFIX]) & _TAG_MASK), [])
+                    entry = [len(raw), _digest_bytes(raw)]
+                    if entry not in bucket:
+                        bucket.append(entry)
 
     def learn_untrusted_text(self, text: str) -> None:
         self._learn_shingles("shingles", text)
@@ -166,27 +173,35 @@ class Session:
         self._learn_shingles("private_shingles", text)
 
     def _learn_shingles(self, key: str, text: str) -> None:
-        norm = " ".join(text.split()).lower()
-        if len(norm) < SHINGLE:
+        view = memoryview(_normalize(text))
+        if len(view) < SHINGLE:
             return
-        new = {digest(norm[i : i + SHINGLE]) for i in range(0, len(norm) - SHINGLE + 1, _SHINGLE_STRIDE)}
+        new = {_window_key(view[i : i + SHINGLE]) for i in range(0, len(view) - SHINGLE + 1, _SHINGLE_STRIDE)}
         with self._update() as data:
-            current = set(data.get(key, []))
+            current = {k for k in data.get(key, []) if isinstance(k, int)}
             current |= new
             data[key] = list(current)[-_MAX_SHINGLES:]
 
     # ------------------------------------------------------------------ readers
     @staticmethod
     def leaked_secret(data: dict[str, Any], text: str) -> bool:
-        """True if ``text`` contains a known secret (or an encoding of it)."""
-        table: dict[str, list[str]] = data.get("secrets") or {}
-        text = text[:200_000]
-        for length_s, hashes in table.items():
-            length = int(length_s)
-            wanted = set(hashes)
-            for i in range(0, len(text) - length + 1):
-                if digest(text[i : i + length]) in wanted:
-                    return True
+        """True if ``text`` contains a known secret (or an encoding of it), anywhere in it.
+
+        One pass over the text: a C checksum of each 8-byte window is looked up in the index,
+        and only candidate positions pay for a full BLAKE2 comparison.
+        """
+        index = data.get("secret_index") or {}
+        if not index:
+            return False
+        tags = {int(k): v for k, v in index.items()}
+        view = memoryview(text.encode("utf-8", "surrogatepass"))
+        n, crc = len(view), zlib.crc32
+        for i in range(n - _PREFIX + 1):
+            candidates = tags.get(crc(view[i : i + _PREFIX]) & _TAG_MASK)
+            if candidates:
+                for length, wanted in candidates:
+                    if i + length <= n and _digest_bytes(view[i : i + length]) == wanted:
+                        return True
         return False
 
     @staticmethod
@@ -201,11 +216,20 @@ class Session:
 
     @staticmethod
     def _overlap(data: dict[str, Any], key: str, text: str) -> bool:
-        shingles = set(data.get(key) or [])
+        shingles = {k for k in data.get(key) or [] if isinstance(k, int)}
         if not shingles:
             return False
-        norm = " ".join(text.split()).lower()[:200_000]
-        return any(digest(norm[i : i + SHINGLE]) in shingles for i in range(0, len(norm) - SHINGLE + 1))
+        view = memoryview(_normalize(text))
+        return any(_window_key(view[i : i + SHINGLE]) in shingles for i in range(len(view) - SHINGLE + 1))
+
+
+def _normalize(text: str) -> bytes:
+    return " ".join(text.split()).lower().encode("utf-8", "surrogatepass")
+
+
+def _window_key(window: memoryview) -> int:
+    """64-bit fingerprint of a window from two C checksums (fast enough to run at every offset)."""
+    return (zlib.crc32(window) << 32) | zlib.adler32(window)
 
 
 # ---------------------------------------------------------------------------- pins

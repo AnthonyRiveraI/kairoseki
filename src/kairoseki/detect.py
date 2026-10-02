@@ -1,7 +1,7 @@
 """Content inspection: sanitization, prompt-injection heuristics, secret and PII detection.
 
 Detection here is a *signal*, never the only line of defense. Kairoseki's core guarantee
-comes from data-flow rules (see ``taint.py``); these heuristics only add taint early and
+comes from data-flow rules (see ``engine.py`` and ``store.py``); these heuristics only add taint early and
 make audit logs readable.
 """
 
@@ -109,12 +109,22 @@ _SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("slack_token", re.compile(r"\bxox[abposr]-[A-Za-z0-9\-]{10,}")),
     ("google_api_key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}")),
     ("stripe_key", re.compile(r"\b[sr]k_live_[0-9A-Za-z]{20,}")),
+    ("npm_token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}")),
 ]
-# key = value assignments in env files / configs; the value is the secret (group 2)
-_ASSIGNMENT = re.compile(
-    r"""(?im)^\s*(?:export\s+)?([A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PWD|CREDENTIALS?)[A-Z0-9_]*)\s*[:=]\s*["']?([^\s"'#]{8,})"""
+# Names of variables that hold secrets: a whole underscore-separated word, so GITHUB_PAT and
+# OPENAI_API_KEY match but PATH, PATHEXT, PWD and MONKEY_D_LUFFY don't.
+SECRET_NAME = re.compile(
+    r"(?:^|_)(?:API_?KEY|KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASS|CREDENTIALS?|AUTH|PAT|PRIVATE_?KEY)(?:_|$)", re.I
 )
+_PATH_LIKE = re.compile(r"^(?:[/~\\]|[A-Za-z]:[\\/]|https?://|\.{1,2}[\\/])")
+# key = value assignments in env files / configs; the value is the secret (group 2)
+_ASSIGNMENT = re.compile(r"""(?im)^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*[:=]\s*["']?([^\s"'#]{8,})""")
+
+
+def is_secret_assignment(name: str, value: str) -> bool:
+    """True for ``OPENAI_API_KEY=sk-...``; False for ``PATH=C:\\...`` or ``SECRET_DIR=/etc/x``."""
+    return bool(SECRET_NAME.search(name)) and len(value) >= 8 and not _PATH_LIKE.match(value)
 
 
 @dataclass(frozen=True)
@@ -132,7 +142,8 @@ def find_secrets(text: str) -> list[SecretMatch]:
         for m in rx.finditer(text):
             found.append(SecretMatch(kind, m.group(0), m.start(), m.end()))
     for m in _ASSIGNMENT.finditer(text):
-        found.append(SecretMatch(f"assigned:{m.group(1).lower()}", m.group(2), m.start(2), m.end(2)))
+        if is_secret_assignment(m.group(1), m.group(2)):
+            found.append(SecretMatch(f"assigned:{m.group(1).lower()}", m.group(2), m.start(2), m.end(2)))
     found.sort(key=lambda s: (s.start, -(s.end - s.start)))
     result: list[SecretMatch] = []
     last_end = -1

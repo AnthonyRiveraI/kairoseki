@@ -63,9 +63,12 @@ attacker-controlled, and the URL itself is an exfiltration channel.
 
 ## Session taint
 
-All proxies started by the same agent share one session file. The session id is the parent process id (plus its
-start time on Linux), because MCP clients spawn every server as a child of the same process. You can force
-one with `KAIROSEKI_SESSION`. Updates go through an exclusive lock file and atomic renames, so concurrent proxies
+All proxies started by the same agent share one session file. The session id is the **MCP client process**
+(its pid plus its start time, which guards against pid reuse on Linux, macOS and Windows). Kairoseki finds it by
+walking up the process tree and skipping its own launch chain: `kairoseki` launchers, `uv`/`uvx`, and processes
+running Kairoseki's own Python interpreter. That matters on Windows, where `uv tool install` puts
+`kairoseki.exe → python.exe (venv redirector) → python.exe` between the client and every server, so the direct
+parent is different for each server. You can force a session with `KAIROSEKI_SESSION`. Updates go through an exclusive lock file and atomic renames, so concurrent proxies
 never lose an update. Sessions expire after 12 hours of inactivity.
 
 A session records:
@@ -73,7 +76,9 @@ A session records:
 * **untrusted sources**: tools with the `untrusted` label, plus *any* tool whose output looked like an injection
 * **private sources**: tools with the `private` label, plus any output that contained a secret
 * **secret fingerprints**: 80-bit BLAKE2b hashes of every secret and of its encodings (base64, URL-safe base64,
-  hex, URL-encoding, reversed). The secrets themselves are never written to disk.
+  hex, URL-encoding, reversed), indexed by a 20-bit checksum of their first 8 bytes. The secrets themselves are
+  never written to disk. A tool call is scanned in one pass, at every offset and with no length limit, so padding
+  an argument cannot push a secret out of view.
 * **untrusted shingles**: hashes of 32-character windows of untrusted text, used to notice when an argument
   copies attacker-provided text (reported as an extra reason, and enforced in `strict` mode)
 * **private shingles**: the same for private tool output, used to notice private data flowing into a tool that

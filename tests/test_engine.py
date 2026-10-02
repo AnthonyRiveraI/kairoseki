@@ -226,3 +226,47 @@ class TestPrivateDataFlow:
     def test_no_untrusted_content_means_no_question(self) -> None:
         make("files").on_tool_result("read_file", text_result(self.ROADMAP))
         assert make("weather").decide("get_weather", {"context": self.ROADMAP}).action == ALLOW
+
+
+def test_path_like_env_vars_are_not_learned_as_secrets() -> None:
+    env = {
+        "PATH": r"C:\Windows\system32;C:\Users\Neo\.local\bin",
+        "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+        "PSModulePath": r"C:\Program Files\WindowsPowerShell\Modules",
+        "HOMEPATH": r"\Users\Neo",
+        "KEYBOARD_LAYOUT": "us-international",
+        "NPM_CONFIG_CACHE": r"C:\Users\Neo\AppData\npm-cache",
+        "SECRET_DIR": r"D:\secrets\folder",
+    }
+    make("srv", env=env)
+    assert not Session("s1").snapshot().get("secret_index")
+
+
+def test_real_secret_env_vars_are_learned() -> None:
+    for name in ("GITHUB_PAT", "GH_TOKEN", "OPENAI_API_KEY", "APIKEY", "DB_PASSWORD", "AUTH_SECRET"):
+        make("srv", session_id=name, env={name: "s3cr3t-value-1234567890"})
+        assert Session(name).snapshot().get("secret_index"), name
+
+
+class TestLargeArguments:
+    def test_padding_does_not_hide_a_secret(self) -> None:
+        make("files", policy=parse_policy({"redact": {"secrets": False}})).on_tool_result(
+            "read_file", text_result(f"GITHUB_TOKEN={TOKEN}")
+        )
+        padded = "x" * 500_000 + TOKEN
+        assert make("web").decide("get_weather", {"city": padded}).rule == "secret_exfiltration"
+
+    def test_padding_does_not_hide_private_data(self) -> None:
+        make("web").on_tool_result("fetch", text_result("page"))
+        make("files").on_tool_result("read_file", text_result(TestPrivateDataFlow.ROADMAP))
+        padded = "y" * 500_000 + TestPrivateDataFlow.ROADMAP
+        assert make("weather").decide("get_weather", {"context": padded}).rule == "private_data_flow"
+
+    def test_scanning_stays_fast_with_many_secrets(self) -> None:
+        import time
+
+        e = make("files", policy=parse_policy({"redact": {"secrets": False}}))
+        e.on_tool_result("read_file", text_result("\n".join(f"K{i}_TOKEN=tok{i}_{'z' * (8 + i)}" for i in range(40))))
+        start = time.perf_counter()
+        make("web").decide("get_weather", {"blob": "q" * 1_000_000})
+        assert time.perf_counter() - start < 2.0
