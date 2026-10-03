@@ -51,6 +51,9 @@ def sanitize(text: str) -> SanitizeResult:
 
 # --------------------------------------------------------------------------- injection
 
+# a directive, not a warning: "do not include credentials" or "never send data to http://" must not match
+_NOT = r"(?<!\bnot\s)(?<!n't\s)(?<!\bnever\s)(?<!\bno\s)"
+
 _INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (name, re.compile(rx, re.IGNORECASE))
     for name, rx in [
@@ -75,11 +78,13 @@ _INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
         (
             "exfil_directive",
-            r"\b(send|post|upload|forward|leak|exfiltrate)\b[^.\n]{0,60}\b(https?://|to\s+[\w.+-]+@[\w-]+\.[\w.]+|webhook|attacker)",
+            _NOT
+            + r"\b(send|post|upload|forward|leak|exfiltrate)\b[^.\n]{0,60}\b(https?://|to\s+[\w.+-]+@[\w-]+\.[\w.]+|webhook|attacker)",
         ),
         (
             "secret_seeking",
-            r"\b(read|cat|print|send|include|copy)\b[^.\n]{0,40}(\.env\b|id_rsa|\.ssh|api[_ -]?keys?|credentials|secrets?|tokens?|mcp\.json|\.aws)",
+            _NOT
+            + r"\b(read|cat|print|send|include|copy)\b[^.\n]{0,40}(\.env\b|id_rsa|\.ssh|api[_ -]?keys?|credentials|secrets?|tokens?|mcp\.json|\.aws)",
         ),
         ("es_override", r"\b(ignora|olvida|omite)\b[^.\n]{0,40}\b(instrucciones|reglas)\b"),
     ]
