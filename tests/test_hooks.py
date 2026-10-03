@@ -122,3 +122,8 @@ def test_hook_session_skips_the_shell_claude_code_runs_hooks_through() -> None:
     assert client is not None and client.pid == 1
     plain = find_client(procs.get, 4, {"C:/py/python.exe"})
     assert plain is not None and plain.pid == 2  # MCP proxies keep stopping at the first non-launcher
+
+
+def test_hook_input_with_a_bom_is_accepted() -> None:
+    event = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}})
+    assert run_hook(io.StringIO("﻿" + event)) == 0

@@ -140,7 +140,8 @@ def handle(event: dict[str, Any]) -> dict[str, Any] | None:
 def run_hook(stdin: Any = None) -> int:
     """Entry point of ``kairoseki hook``. Never breaks the client: errors are logged, not raised."""
     try:
-        event = json.load(stdin or sys.stdin)
+        # Windows PowerShell pipes add a UTF-8 BOM
+        event = json.loads((stdin or sys.stdin).read().lstrip("﻿"))
         result = handle(event) if isinstance(event, dict) else None
     except Exception as e:
         print(f"kairoseki hook error: {e!r}", file=sys.stderr)
