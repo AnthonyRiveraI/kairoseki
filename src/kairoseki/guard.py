@@ -103,6 +103,17 @@ class Guard:
         self.engine.on_tool_result(tool, {"content": [{"type": "text", "text": text}]})
         return result
 
+    @staticmethod
+    def tool_error(ctx: Any, error: Exception) -> str:
+        """Error text for the model, e.g. ``@function_tool(failure_error_function=guard.tool_error)``.
+
+        Some frameworks (OpenAI Agents SDK) replace tool exceptions with "An error occurred... Please try
+        again", which hides why the call was blocked and invites a retry.
+        """
+        if isinstance(error, KairosekiBlocked):
+            return f"{error} Do not retry this call; tell the user what you were trying to do."
+        return f"An error occurred while running the tool: {error}"
+
     # ------------------------------------------------------------------ decorator
     def tool(self, labels: set[str] | None = None, name: str | None = None) -> Callable[[F], F]:
         def decorate(fn: F) -> F:

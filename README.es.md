@@ -214,7 +214,9 @@ guard = Guard()   # o Guard(on_ask=lambda tool, decision: input(f"¿permitir {to
 async def send_email(args): ...
 ```
 
-Una llamada bloqueada lanza `KairosekiBlocked`, que los frameworks devuelven al modelo como error de la tool. Un *ask*
+Una llamada bloqueada lanza `KairosekiBlocked` y nunca se ejecuta. Los frameworks que cambian los errores de las tools
+por un genérico "inténtalo de nuevo" (el OpenAI Agents SDK) deben recibir
+`@function_tool(failure_error_function=guard.tool_error)`, para que el modelo sepa por qué y no reintente. Un *ask*
 va a `on_ask`, a tu teléfono con Den Den Mushi, o se rechaza. El Guard también define `KAIROSEKI_SESSION`, así que los
 servidores MCP que tu agente arranque con `kairoseki run` comparten su taint.
 

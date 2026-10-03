@@ -210,7 +210,9 @@ guard = Guard()   # or Guard(on_ask=lambda tool, decision: input(f"allow {tool}?
 async def send_email(args): ...
 ```
 
-A denied call raises `KairosekiBlocked`, which frameworks hand back to the model as a tool error. An *ask* goes to
+A denied call raises `KairosekiBlocked` and never runs. Frameworks that replace tool errors with a generic "please try
+again" (the OpenAI Agents SDK) should get `@function_tool(failure_error_function=guard.tool_error)`, so the model is
+told why and not to retry. An *ask* goes to
 `on_ask`, or to your phone with [Den Den Mushi](#how-decisions-are-made), or is refused. The Guard also sets
 `KAIROSEKI_SESSION`, so MCP servers your agent starts through `kairoseki run` share its taint.
 

