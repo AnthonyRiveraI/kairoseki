@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml"><img src="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/versión-0.1.2-0b1026?labelColor=0b1026" alt="Versión 0.1.2" />
+  <a href="https://pypi.org/project/kairoseki/"><img src="https://img.shields.io/pypi/v/kairoseki?color=0b1026&labelColor=0b1026" alt="PyPI" /></a>
   <img src="https://img.shields.io/badge/python-3.10%20%E2%86%92%203.13-0b1026?labelColor=0b1026" alt="Python" />
   <img src="https://img.shields.io/badge/MCP-2024--11%20%E2%86%92%202026--07-0b1026?labelColor=0b1026" alt="Versiones de MCP" />
   <img src="docs/assets/score.svg" alt="Nota de Kairoseki" />
@@ -24,7 +24,7 @@ con el poder más peligroso de tu agente: leer algo que escribió un atacante y 
 sin que te des cuenta.
 
 ```bash
-uv tool install git+https://github.com/AnthonyRiveraI/kairoseki
+pipx install kairoseki      # o: uv tool install kairoseki
 kairoseki scan              # ¿qué podría hacer un solo prompt injection con tu configuración MCP?
 kairoseki wrap              # protege cada servidor MCP de tu config de Claude / Cursor / VS Code
 kairoseki attack            # repite 9 ataques reales contra tu configuración y te da una nota
@@ -83,18 +83,17 @@ tanto en la versión con handshake (`initialize`, 2024-11-05 → 2025-11-25) com
 | :-- | :-- | :-- |
 | **[uv](https://docs.astral.sh/uv/)** (recomendado) o **pipx** | Instala Kairoseki como una herramienta de línea de comandos aislada | macOS / Linux: `curl -LsSf https://astral.sh/uv/install.sh \| sh`<br/>Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
 | **Python 3.10+** | Kairoseki está escrito en Python | uv descarga un Python compatible automáticamente si no lo tienes. Con pipx, instálalo tú. |
-| **Git** | Para instalar directo desde GitHub | [git-scm.com](https://git-scm.com/downloads) |
+| **Git** *(opcional)* | Solo para instalar la versión en desarrollo desde GitHub | [git-scm.com](https://git-scm.com/downloads) |
 | **Un cliente MCP** | Algo que proteger | Claude Code, Claude Desktop, Cursor, VS Code, Windsurf... |
 | **Node.js** *(opcional)* | Solo si tus servidores MCP arrancan con `npx` | [nodejs.org](https://nodejs.org/) |
 
 ### 1. Instalar
 
-Kairoseki todavía no está en PyPI, así que se instala desde GitHub:
-
 ```bash
-uv tool install git+https://github.com/AnthonyRiveraI/kairoseki
-# o con pipx:
-pipx install git+https://github.com/AnthonyRiveraI/kairoseki
+uv tool install kairoseki
+# o: pipx install kairoseki
+# o pruébalo sin instalar: uvx kairoseki scan
+# última versión desde GitHub: uv tool install git+https://github.com/AnthonyRiveraI/kairoseki
 ```
 
 Luego asegúrate de que el comando `kairoseki` esté en tu `PATH` y abre una terminal **nueva**:
@@ -265,7 +264,6 @@ mcp-context-protector de Trail of Bits. Las dos herramientas se complementan.
 
 ## Roadmap
 
-- [ ] Publicar en PyPI (`pipx install kairoseki`)
 - [ ] Transporte Streamable HTTP
 - [ ] 🐌 Den Den Mushi: Kairoseki *te llama por teléfono* para aprobar acciones riesgosas
 - [ ] Exportar decisiones a OpenTelemetry
