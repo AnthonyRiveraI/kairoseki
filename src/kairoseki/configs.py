@@ -69,6 +69,17 @@ def same_project(a: str | os.PathLike[str], b: str | os.PathLike[str]) -> bool:
     return _project_key(a) == _project_key(b)
 
 
+def current_project(projects: list[str], cwd: str | os.PathLike[str]) -> str | None:
+    """The project Claude Code uses for ``cwd``: the deepest known project containing it.
+
+    Claude Code keys projects by git root (or the start directory), so a session started in a
+    subfolder of a repo uses the repo's entry.
+    """
+    here = _project_key(cwd)
+    containing = [p for p in projects if here == _project_key(p) or here.startswith(_project_key(p).rstrip("/") + "/")]
+    return max(containing, key=lambda p: len(_project_key(p)), default=None)
+
+
 def server_blocks(
     data: dict[str, Any], cwd: Path | None = None, all_projects: bool = False, top_scope: str = "user"
 ) -> list[tuple[str, dict[str, Any]]]:
@@ -85,10 +96,10 @@ def server_blocks(
         blocks.append((top_scope, data[key]))
     projects = data.get("projects")
     if isinstance(projects, dict):
-        here = cwd or Path.cwd()
+        current = current_project(list(projects), cwd or Path.cwd())
         for project, settings in projects.items():
             servers = settings.get("mcpServers") if isinstance(settings, dict) else None
-            if isinstance(servers, dict) and servers and (all_projects or same_project(project, here)):
+            if isinstance(servers, dict) and servers and (all_projects or project == current):
                 blocks.append((f"local ({project})", servers))
     return blocks
 

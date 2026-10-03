@@ -237,7 +237,7 @@ def test_wrap_prints_a_protection_summary_and_status_lists_it(tmp_path: Path) ->
     assert "project" in before.stdout  # .mcp.json is Claude Code's project scope
     wrapped = subprocess.run(kairoseki_argv("wrap"), capture_output=True, encoding="utf-8", cwd=tmp_path, env=env)
     assert "1 protected, 0 not protected" in wrapped.stdout, wrapped.stdout
-    assert "remote server, not supported yet" in wrapped.stdout
+    assert "wrap --remote" in wrapped.stdout
     after = subprocess.run(kairoseki_argv("status"), capture_output=True, encoding="utf-8", cwd=tmp_path, env=env)
     assert "1 protected." in after.stdout
 
@@ -260,3 +260,14 @@ def test_wrap_remote_bridges_through_mcp_remote_and_undo_restores(tmp_path: Path
     assert all(e.wrapped for e in read_servers(path, cwd=tmp_path))
     assert sorted(unwrap_config(path, cwd=tmp_path)) == ["fetch", "figma", "legacy"]
     assert json.loads(path.read_text())["mcpServers"] == original
+
+
+def test_local_servers_of_the_enclosing_git_root_are_found() -> None:
+    from kairoseki.configs import current_project
+
+    projects = ["C:/Users/Neo", "C:/Users/Neo/work/app", "C:/Users/Neo/work/app-old"]
+    # a session started in a subfolder uses the deepest project that contains it
+    assert current_project(projects, r"c:\users\neo\work\app\src") == "C:/Users/Neo/work/app"
+    assert current_project(projects, r"C:\Users\Neo\Documents\other") == "C:/Users/Neo"
+    assert current_project(projects, "C:/Users/Neo/work/app-older") == "C:/Users/Neo"  # not a prefix match
+    assert current_project(["/home/neo/proj"], "/srv/elsewhere") is None
