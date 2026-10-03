@@ -23,6 +23,8 @@ HERE = Path(__file__).parent
 THRESHOLDS = {
     "injection precision": 0.90,  # false alarms on benign descriptions make users turn things off
     "injection recall (direct)": 0.85,
+    "poisoned definitions caught": 0.85,
+    "honest definitions not blocked": 0.90,  # blocking an honest tool breaks the user's setup
     "labels F1 (per leg, min)": 0.75,
     "hooks attacks blocked": 1.00,
     "hooks benign uninterrupted": 0.90,
@@ -60,7 +62,25 @@ def eval_injection(misses: list[str]) -> dict[str, float]:
     misses += [f"injection missed (paraphrase): {t[:90]!r}" for t in data["paraphrase"] if t not in para]
     misses += [f"injection false alarm: {t[:90]!r}" for t in false_alarms]
     true_pos = len(direct) + len(para)
+
+    from kairoseki.detect import is_poisoned_definition
+
+    def poisoned(text: str) -> bool:
+        if text.startswith("TAGS:"):
+            text = hide_in_tags(text[5:])
+        hits = find_injection(text) + (["hidden_unicode"] if sanitize(text).hidden else [])
+        hits += ["ansi_escape"] if "\x1b" in text else []
+        return is_poisoned_definition(hits)
+
+    caught = [t for t in data["poisoned_definitions"] if poisoned(t)]
+    wrongly = [t for t in data["benign_definitions"] if poisoned(t)]
+    misses += [f"poisoned definition missed: {t[:90]!r}" for t in data["poisoned_definitions"] if t not in caught]
+    misses += [f"honest definition blocked: {t[:90]!r}" for t in wrongly]
     return {
+        "poisoned definitions caught": ratio(len(caught), len(data["poisoned_definitions"])),
+        "honest definitions not blocked": ratio(
+            len(data["benign_definitions"]) - len(wrongly), len(data["benign_definitions"])
+        ),
         "injection precision": ratio(true_pos, true_pos + len(false_alarms)),
         "injection recall (direct)": ratio(len(direct), len(data["direct"])),
         "injection recall (paraphrase)": ratio(len(para), len(data["paraphrase"])),

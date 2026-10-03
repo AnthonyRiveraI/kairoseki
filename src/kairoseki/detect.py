@@ -98,6 +98,21 @@ _INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 
+# Signals that are hard to write innocently in a tool definition. The others ("do not show this id to
+# users", "Send { token, key }", a description quoting "ignore your instructions" as a warning) show
+# up in real, honest MCP servers, so on their own they don't make a tool poisoned.
+STRONG_SIGNALS = frozenset({"important_tag", "chat_template", "exfil_directive", "hidden_unicode", "ansi_escape"})
+
+
+def is_poisoned_definition(hits: list[str]) -> bool:
+    """A tool *definition* is poisoned on one strong signal or two different weak ones.
+
+    Tool *output* is warned about on any signal; blocking a tool is a bigger step.
+    """
+    found = set(hits)
+    return bool(found & STRONG_SIGNALS) or len(found - STRONG_SIGNALS) >= 2
+
+
 def find_injection(text: str) -> list[str]:
     """Return the names of injection heuristics that match ``text`` (empty if none)."""
     if not text:

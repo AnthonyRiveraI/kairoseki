@@ -26,7 +26,7 @@ from typing import Any
 
 from kairoseki import __version__
 from kairoseki.client import StdioClient
-from kairoseki.detect import find_injection, sanitize
+from kairoseki.detect import find_injection, is_poisoned_definition, sanitize
 from kairoseki.labels import PRIVATE, SINK, UNTRUSTED, classify
 from kairoseki.proxy import CAPS_META_KEY, VERSION_META_KEY
 from kairoseki.store import tool_digest
@@ -170,7 +170,7 @@ def analyze(name: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
             {h for t in texts for h in find_injection(t)}
             | ({"hidden_unicode"} if any(sanitize(t).hidden for t in texts) else set())
         )
-        if hits:
+        if is_poisoned_definition(hits):
             poisoned[tool_name] = hits
         for leg in legs:
             if leg in labels:

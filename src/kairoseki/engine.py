@@ -129,7 +129,7 @@ class Engine:
             if any("\x1b" in t for t in text_fields):
                 hits.append("ansi_escape")
             tool = _map_strings(tool, lambda s: detect.sanitize(s).text)
-            if hits:
+            if detect.is_poisoned_definition(hits):
                 self.poisoned[name] = sorted(set(hits))
                 self._log("poisoned_tool", tool=name, patterns=self.poisoned[name])
                 if self.policy.block_poisoned_tools:

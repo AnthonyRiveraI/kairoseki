@@ -16,7 +16,7 @@ from rich.table import Table
 
 from . import __version__
 from .configs import ServerEntry, candidate_configs, read_servers, unwrap_argv, unwrap_config, wrap_config
-from .detect import find_injection, sanitize
+from .detect import find_injection, is_poisoned_definition, sanitize
 from .labels import PRIVATE, SINK, UNTRUSTED, classify, describe
 from .policy import DEFAULT_POLICY_YAML, PolicyError, home_dir, load_policy
 from .report import ScanResult, render_card
@@ -87,10 +87,12 @@ def _scan_entries(entries: list[tuple[str, ServerEntry]], timeout: float, result
             hits = sorted({h for t in texts for h in find_injection(t)})
             if any(sanitize(t).hidden for t in texts):
                 hits.append("hidden_unicode")
-            if hits:
+            if is_poisoned_definition(hits):
                 problems += 1
                 result.poisoned.append(f"{entry.name}.{name}")
                 notes.append(f"[red]poisoned description: {', '.join(hits)}[/red]")
+            elif hits:
+                notes.append(f"[yellow]instruction-like text, probably benign: {', '.join(hits)}[/yellow]")
             for leg in legs:
                 if leg in labels:
                     legs[leg].append(f"{entry.name}.{name}")

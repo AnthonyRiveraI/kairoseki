@@ -308,6 +308,8 @@ run (`uv run python evals/run.py`, also in CI):
 | Injection detector: precision on real tool descriptions | 94% |
 | Injection detector: recall, plainly worded attacks | 100% |
 | Injection detector: recall, paraphrased attacks | **0%** |
+| Poisoned tool definitions caught (real tool-poisoning payloads) | 7/7 |
+| Honest tool definitions not blocked (incl. real registry servers once misflagged) | 10/10 |
 | Tool labels: worst per-leg F1 on real tool names | 87% |
 | Claude Code hooks: attack sequences blocked | 10/10 |
 | Claude Code hooks: everyday coding sequences uninterrupted | 10/10 |

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1
+
+* **Fewer honest tools blocked.** A tool definition now counts as poisoned only on a strong signal (an `<IMPORTANT>` or
+  `<system>` tag, a chat template, an order to send data to a URL or address, hidden Unicode, ANSI escapes) or two
+  different weak ones. The first public MCP Risk Index flagged 14 registry servers on a single weak signal, such as
+  "Do not show this id to users", "Send { ns, token, key? }" or a description quoting "ignore your instructions" as a
+  warning; Kairoseki would have blocked those tools too. Tool *output* still gets a warning on any signal.
+* `kairoseki scan` shows single weak signals as "instruction-like text, probably benign" instead of poisoned.
+* `kairoseki hook` accepts input with a UTF-8 BOM (Windows PowerShell pipes add one).
+* Evals: poisoned vs honest tool definitions, with real payloads and the misflagged registry descriptions.
+
 ## 0.2.0
 
 Beyond MCP: the client's own tools, your own agents, remote servers, your phone, and the whole registry.
