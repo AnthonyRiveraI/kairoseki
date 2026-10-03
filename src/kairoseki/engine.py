@@ -285,14 +285,39 @@ class Engine:
         return out
 
     # ------------------------------------------------------------------ messages
-    def deny_text(self, tool: str, decision: Decision, approval_id: str | None = None) -> str:
-        lines = [f"🪨 Kairoseki blocked '{tool}' ({decision.rule}):"]
-        lines += [f"- {r}" for r in decision.reasons]
+    def explain(
+        self, tool: str, decision: Decision, arguments: Any = None, action: str | None = None, hide_args: bool = False
+    ) -> str:
+        """Plain-language explanation for people, built from this session (see ``explain.py``)."""
+        from .explain import explain
+
+        return explain(
+            decision.rule,
+            action or decision.action,
+            tool,
+            self.server,
+            arguments,
+            self.session.snapshot(),
+            hide_args=hide_args,
+        )
+
+    def deny_text(self, tool: str, decision: Decision, approval_id: str | None = None, arguments: Any = None) -> str:
+        """What the agent gets back instead of the tool result: the explanation to relay to the user."""
+        from .explain import language
+
+        es = language() == "es"
+        lines = [self.explain(tool, decision, arguments, action="deny")]
         if approval_id:
             lines.append(
-                f"If the user really wants this, they can allow it once by running `kairoseki approve {approval_id}` "
-                "in a terminal and then asking you to retry. Do not retry on your own."
+                f"Si de verdad lo quieres, permítelo una vez con `kairoseki approve {approval_id}` en una terminal "
+                "y pídele al agente que lo reintente."
+                if es
+                else f"If you really want this, allow it once with `kairoseki approve {approval_id}` in a terminal, "
+                "then ask the agent to retry."
             )
+        lines.append(
+            f"[kairoseki: {decision.rule}] Explain this to the user in plain words and do not retry on your own."
+        )
         return "\n".join(lines)
 
 

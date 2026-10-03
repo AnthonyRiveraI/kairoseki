@@ -39,9 +39,10 @@ F = TypeVar("F", bound=Callable[..., Any])
 class KairosekiBlocked(PermissionError):
     """Raised instead of running a tool call Kairoseki denied (or that needed an approval it didn't get)."""
 
-    def __init__(self, tool: str, decision: Decision) -> None:
+    def __init__(self, tool: str, decision: Decision, explanation: str = "") -> None:
         self.tool, self.decision = tool, decision
-        super().__init__(f"🪨 Kairoseki blocked '{tool}' ({decision.rule}): " + "; ".join(decision.reasons))
+        text = explanation or f"🪨 Kairoseki blocked '{tool}': " + "; ".join(decision.reasons)
+        super().__init__(f"{text}\n[kairoseki: {decision.rule}]")
 
 
 class Guard:
@@ -68,7 +69,7 @@ class Guard:
         decision = self.engine.decide(tool, arguments)
         if decision.action == ALLOW or (decision.action == ASK and self._approve(tool, decision)):
             return
-        raise KairosekiBlocked(tool, decision)
+        raise KairosekiBlocked(tool, decision, self.engine.explain(tool, decision, arguments, action="deny"))
 
     def _approve(self, tool: str, decision: Decision) -> bool:
         if self.on_ask is not None:

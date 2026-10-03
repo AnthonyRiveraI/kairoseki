@@ -16,6 +16,7 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("KAIROSEKI_HOME", str(home))
     monkeypatch.setenv("KAIROSEKI_SESSION", f"test-{tmp_path.name}")
     monkeypatch.delenv("KAIROSEKI_POLICY", raising=False)
+    monkeypatch.setenv("KAIROSEKI_LANG", "en")  # explanations follow the OS language otherwise
     return home
 
 

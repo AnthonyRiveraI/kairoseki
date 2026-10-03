@@ -118,7 +118,8 @@ def handle(event: dict[str, Any]) -> dict[str, Any] | None:
         decision = engine.decide(tool, tool_input)
         if decision.action == ALLOW:
             return None
-        reason = f"🪨 Kairoseki ({decision.rule}): " + "; ".join(decision.reasons)
+        # shown to the user in Claude Code's permission prompt (ask) or relayed by the agent (deny)
+        reason = engine.explain(tool, decision, tool_input) + f"\n[kairoseki: {decision.rule}]"
         return {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",

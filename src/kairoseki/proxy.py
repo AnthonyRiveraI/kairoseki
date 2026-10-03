@@ -192,7 +192,7 @@ class Proxy:
             # the approval only overrides an "ask"; anything that is now a hard deny stays denied
             recheck = self.engine.decide(tool, arguments)
             if recheck.action == DENY:
-                self._reply_error_result(msg, self.engine.deny_text(tool, recheck), modern)
+                self._reply_error_result(msg, self.engine.deny_text(tool, recheck, arguments=arguments), modern)
                 return
             self.engine._log("approved", tool=tool, via="elicitation")
             params.pop("requestState", None)
@@ -216,7 +216,7 @@ class Proxy:
                 self._reply_input_required(msg, tool, arguments, decision)
                 return
             if not modern and self._legacy_elicitation:
-                if await self._legacy_ask(tool, decision):
+                if await self._legacy_ask(tool, decision, arguments):
                     self.engine._log("approved", tool=tool, via="elicitation")
                     await self._forward_call(msg, tool, arguments)
                 else:
@@ -232,14 +232,14 @@ class Proxy:
                         self.engine._log("approved", tool=tool, approval=approval_id, via="phone")
                         await self._forward_call(msg, tool, arguments)
                     elif answer:
-                        self._reply_error_result(msg, self.engine.deny_text(tool, recheck), modern)
+                        self._reply_error_result(msg, self.engine.deny_text(tool, recheck, arguments=arguments), modern)
                     else:
                         self.engine._log("declined", tool=tool, approval=approval_id, via="phone")
                         self._reply_error_result(msg, f"🪨 Kairoseki: the user declined '{tool}'.", modern)
                     return
-            self._reply_error_result(msg, self.engine.deny_text(tool, decision, approval_id), modern)
+            self._reply_error_result(msg, self.engine.deny_text(tool, decision, approval_id, arguments), modern)
             return
-        self._reply_error_result(msg, self.engine.deny_text(tool, decision), modern)
+        self._reply_error_result(msg, self.engine.deny_text(tool, decision, arguments=arguments), modern)
 
     async def _forward_call(self, msg: dict[str, Any], tool: str, arguments: Any) -> None:
         self._pending[_key(msg["id"])] = ("tools/call", tool)
@@ -252,9 +252,8 @@ class Proxy:
         self.send_client({"jsonrpc": "2.0", "id": msg["id"], "result": result})
 
     # ------------------------------------------------------------------ approvals
-    def _prompt(self, tool: str, decision: Decision) -> str:
-        reasons = "; ".join(decision.reasons)
-        return f"🪨 Kairoseki: allow '{tool}' on '{self.engine.server}'? Reason: {reasons}"
+    def _prompt(self, tool: str, decision: Decision, arguments: Any = None) -> str:
+        return self.engine.explain(tool, decision, arguments, action="ask") + f"\n[kairoseki: {decision.rule}]"
 
     def _make_state(self, tool: str, arguments: Any) -> str:
         body = json.dumps({"k": args_digest(tool, arguments), "exp": time.time() + self.engine.policy.approval_ttl})
@@ -285,7 +284,7 @@ class Proxy:
                             "method": "elicitation/create",
                             "params": {
                                 "mode": "form",
-                                "message": self._prompt(tool, decision),
+                                "message": self._prompt(tool, decision, arguments),
                                 "requestedSchema": _approval_schema(),
                             },
                         }
@@ -301,11 +300,13 @@ class Proxy:
 
         policy = self.engine.policy
         assert policy.denden is not None
+        # the explanation without arguments: only server, tool and reason leave the machine
+        message = [self.engine.explain(tool, decision, action="ask", hide_args=True)]
         return await asyncio.to_thread(
-            ask, policy.denden, self.engine.server, tool, decision.reasons, approval_id, policy.approval_timeout
+            ask, policy.denden, self.engine.server, tool, message, approval_id, policy.approval_timeout
         )
 
-    async def _legacy_ask(self, tool: str, decision: Decision) -> bool:
+    async def _legacy_ask(self, tool: str, decision: Decision, arguments: Any = None) -> bool:
         req_id = f"kairoseki-{next(self._ids)}"
         fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
         self._own_requests[req_id] = fut
@@ -314,7 +315,7 @@ class Proxy:
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "method": "elicitation/create",
-                "params": {"message": self._prompt(tool, decision), "requestedSchema": _approval_schema()},
+                "params": {"message": self._prompt(tool, decision, arguments), "requestedSchema": _approval_schema()},
             }
         )
         try:

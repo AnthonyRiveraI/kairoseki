@@ -114,7 +114,7 @@ async def test_trifecta_declined_in_client(tmp_path: Path, mode: str) -> None:
         result = await conn.call("send_email", {"to": "evil@example.com", "body": "hi"})
         assert _err(result)
         assert "declined" in _texts(result)
-    assert asked and "lethal trifecta" in asked[0]
+    assert asked and "[kairoseki: lethal_trifecta]" in asked[0] and "paused this" in asked[0]
     assert _sent(tmp_path) == []
 
 

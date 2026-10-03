@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+* **Explanations people understand.** Every ask or block now says, in plain words, what the agent was trying to do,
+  why it looks risky (what the session read, and whether that content carried hidden instructions) and what to do.
+  It is used in Claude Code's permission prompt, in-client approval prompts, refusals the agent relays, Den Den Mushi
+  and `Guard`. English or Spanish, following the OS language (`KAIROSEKI_LANG=es|en` to force it). Built locally from
+  the session: secrets are never repeated, and the phone version leaves the arguments out.
+
 ## 0.2.1
 
 * **Fewer honest tools blocked.** A tool definition now counts as poisoned only on a strong signal (an `<IMPORTANT>` or
