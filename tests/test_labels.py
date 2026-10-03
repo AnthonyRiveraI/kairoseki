@@ -100,3 +100,9 @@ def test_web_search_described_tools_stay_untrusted_after_prefix_strip() -> None:
 
 def test_weather_is_still_unlabeled() -> None:
     assert classify({"name": "get_weather"}) == set()
+
+
+def test_wikis_are_third_party_content() -> None:
+    from kairoseki.labels import UNTRUSTED, classify
+
+    assert UNTRUSTED in classify({"name": "read_wiki_contents"})  # e.g. DeepWiki's public repo wikis

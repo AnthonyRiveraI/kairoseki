@@ -190,6 +190,8 @@ UNTRUSTED_OBJECTS = {
     "article",
     "articles",
     "readme",
+    "wiki",
+    "wikis",
 }
 # The user's own data.
 PRIVATE_OBJECTS = {
