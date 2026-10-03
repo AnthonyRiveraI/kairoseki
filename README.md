@@ -173,8 +173,9 @@ kairoseki hooks uninstall
 | `Bash` | private, or untrusted for `curl`, `wget`, `gh issue view`, `gh api`... | a sink for `curl`, `ssh`, `git push`, `gh pr`, `npm publish`... |
 
 A secret seen anywhere in the session is denied in any URL or command, even encoded. A sink after untrusted content and
-private data gets Claude Code's own permission prompt. Hooks only ever answer *ask* or *deny*, never *allow*: they can
-tighten your permissions, never loosen them. Built-in output can't be rewritten, so redaction stays MCP-only.
+private data gets Claude Code's own permission prompt, or rings your phone first with Den Den Mushi's `prefer: true`.
+Hooks answer *ask* or *deny*, so they tighten your permissions; the only *allow* is a call you approved on your phone.
+Built-in output can't be rewritten, so redaction stays MCP-only.
 
 ### 5. Try to break it
 
@@ -274,7 +275,8 @@ When Kairoseki asks:
 * **🐌 Your phone (Den Den Mushi).** With a `denden:` section in your policy, Kairoseki rings the free
   [ntfy](https://ntfy.sh) app with Approve / Deny buttons and waits for your tap: handy for agents running while you're
   away. Only the server, tool and reason are sent, never the arguments. Set it up with `kairoseki denden setup`, try
-  it with `kairoseki denden test`.
+  it with `kairoseki denden test`. By default it rings only when the client can't ask on screen; add `prefer: true`
+  to ring first even in Claude Code (MCP servers and built-in tools), falling back to the screen if you don't answer.
 * **Terminal.** Otherwise the agent gets a clear refusal with an id. Run `kairoseki approve K-1A2B3C`, then ask the
   agent to retry. Approvals are single-use, bound to the exact arguments, and expire after 10 minutes.
 

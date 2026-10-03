@@ -211,6 +211,13 @@ class Proxy:
             if self.engine.consume_approval(tool, arguments):
                 await self._forward_call(msg, tool, arguments)
                 return
+            denden = self.engine.policy.denden
+            if denden is not None and denden.prefer:  # unattended agent: the phone first, the screen as fallback
+                approval_id = self.engine.approvals.request(self.engine.server, tool, arguments, decision.reasons)
+                answer = await self._phone_ask(tool, decision, approval_id)
+                if answer is not None:
+                    await self._answer_from_phone(msg, tool, arguments, decision, approval_id, answer, modern)
+                    return
             caps = (params.get("_meta") or {}).get(CAPS_META_KEY) or {}
             if modern and "elicitation" in caps:
                 self._reply_input_required(msg, tool, arguments, decision)
@@ -224,22 +231,35 @@ class Proxy:
                     self._reply_error_result(msg, f"🪨 Kairoseki: the user declined '{tool}'.", modern)
                 return
             approval_id = self.engine.approvals.request(self.engine.server, tool, arguments, decision.reasons)
-            if self.engine.policy.denden is not None:
+            if denden is not None and not denden.prefer:  # with prefer, the phone already had its turn
                 answer = await self._phone_ask(tool, decision, approval_id)
                 if answer is not None:
-                    recheck = self.engine.decide(tool, arguments) if answer else decision
-                    if answer and recheck.action != DENY:
-                        self.engine._log("approved", tool=tool, approval=approval_id, via="phone")
-                        await self._forward_call(msg, tool, arguments)
-                    elif answer:
-                        self._reply_error_result(msg, self.engine.deny_text(tool, recheck, arguments=arguments), modern)
-                    else:
-                        self.engine._log("declined", tool=tool, approval=approval_id, via="phone")
-                        self._reply_error_result(msg, f"🪨 Kairoseki: the user declined '{tool}'.", modern)
+                    await self._answer_from_phone(msg, tool, arguments, decision, approval_id, answer, modern)
                     return
             self._reply_error_result(msg, self.engine.deny_text(tool, decision, approval_id, arguments), modern)
             return
         self._reply_error_result(msg, self.engine.deny_text(tool, decision, arguments=arguments), modern)
+
+    async def _answer_from_phone(
+        self,
+        msg: dict[str, Any],
+        tool: str,
+        arguments: Any,
+        decision: Decision,
+        approval_id: str,
+        answer: bool,
+        modern: bool,
+    ) -> None:
+        # the approval only overrides an "ask"; anything that is now a hard deny stays denied
+        recheck = self.engine.decide(tool, arguments) if answer else decision
+        if answer and recheck.action != DENY:
+            self.engine._log("approved", tool=tool, approval=approval_id, via="phone")
+            await self._forward_call(msg, tool, arguments)
+        elif answer:
+            self._reply_error_result(msg, self.engine.deny_text(tool, recheck, arguments=arguments), modern)
+        else:
+            self.engine._log("declined", tool=tool, approval=approval_id, via="phone")
+            self._reply_error_result(msg, f"🪨 Kairoseki: the user declined '{tool}' from their phone.", modern)
 
     async def _forward_call(self, msg: dict[str, Any], tool: str, arguments: Any) -> None:
         self._pending[_key(msg["id"])] = ("tools/call", tool)

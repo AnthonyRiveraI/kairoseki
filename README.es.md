@@ -176,9 +176,10 @@ kairoseki hooks uninstall
 | `Bash` | private, o untrusted para `curl`, `wget`, `gh issue view`, `gh api`... | sink para `curl`, `ssh`, `git push`, `gh pr`, `npm publish`... |
 
 Un secreto visto en la sesión se bloquea en cualquier URL o comando, aunque vaya codificado. Un sink después de
-contenido no confiable y datos privados activa el aviso de permisos de Claude Code. Los hooks solo responden *ask* o
-*deny*, nunca *allow*: pueden endurecer tus permisos, nunca relajarlos. La salida de las tools propias no se puede
-reescribir, así que la redacción sigue siendo solo para MCP.
+contenido no confiable y datos privados activa el aviso de permisos de Claude Code, o hace sonar primero tu móvil con
+`prefer: true` de Den Den Mushi. Los hooks responden *ask* o *deny*, así que endurecen tus permisos; el único *allow*
+es una llamada que tú aprobaste desde el móvil. La salida de las tools propias no se puede reescribir, así que la
+redacción sigue siendo solo para MCP.
 
 ### 5. Intenta romperlo
 
@@ -279,7 +280,9 @@ Cuando Kairoseki pregunta:
 * **🐌 Tu teléfono (Den Den Mushi).** Con una sección `denden:` en tu policy, Kairoseki hace sonar la app gratuita
   [ntfy](https://ntfy.sh) con botones Aprobar / Rechazar y espera tu respuesta: útil para agentes que trabajan mientras
   no estás. Solo se envían el servidor, la tool y la razón, nunca los argumentos. Configúralo con
-  `kairoseki denden setup` y pruébalo con `kairoseki denden test`.
+  `kairoseki denden setup` y pruébalo con `kairoseki denden test`. Por defecto solo suena cuando el cliente no puede
+  preguntarte en pantalla; con `prefer: true` suena primero incluso en Claude Code (servidores MCP y tools propias), y
+  si no respondes vuelve al aviso en pantalla.
 * **En la terminal.** Si no, el agente recibe un rechazo claro con un id. Corre `kairoseki approve K-1A2B3C` y pídele al
   agente que lo intente de nuevo. Cada aprobación sirve una sola vez, solo para esos argumentos exactos, y vence en 10 minutos.
 

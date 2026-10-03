@@ -9,8 +9,9 @@ the event on stdin, labels the call, and joins the *same* shared session as the 
 * ``PreToolUse`` asks the engine: a secret seen this session in a WebFetch URL or a Bash command is
   denied; a sink (curl, git push, a data-carrying URL...) after untrusted + private data asks.
 
-Only ``ask`` / ``deny`` are ever returned, never ``allow``: Kairoseki can tighten Claude Code's
-permissions but never loosen them. Built-in output can't be rewritten, so redaction only applies
+Kairoseki answers ``ask`` or ``deny``, so it tightens Claude Code's permissions. The one exception
+is Den Den Mushi with ``prefer: true``: when you approve that exact call on your phone, the hook
+answers ``allow`` (and ``deny`` when you refuse); with no answer it falls back to ``ask``. Built-in output can't be rewritten, so redaction only applies
 to MCP tools; here secrets are fingerprinted instead, which still blocks sending them anywhere.
 """
 
@@ -34,6 +35,7 @@ from .session_id import client_session_id
 from .store import Approvals, Audit, Session, default_session_id
 
 SERVER = "claude-code"
+HOOK_TIMEOUT = 180  # seconds Claude Code waits for the hook; covers a phone approval
 MATCHER = "Bash|WebFetch|WebSearch|Read|Grep"
 # Claude Code runs hook commands through a shell; skip it to find the client (and its session)
 SHELLS = frozenset({"bash", "sh", "dash", "zsh", "fish", "cmd", "powershell", "pwsh"})
@@ -103,6 +105,28 @@ def _engine(tool: str, labels: set[str], policy: Policy) -> Engine:
     return engine
 
 
+def phone_ask(engine: Engine, tool: str, decision: Any, policy: Policy) -> bool | None:
+    """Den Den Mushi from a hook: ring the phone and wait (the hook timeout allows for it)."""
+    from .denden import ask
+
+    assert policy.denden is not None
+    approval_id = engine.approvals.request(SERVER, tool, {}, decision.reasons)
+    message = [engine.explain(tool, decision, action="ask", hide_args=True)]
+    answer = ask(policy.denden, SERVER, tool, message, approval_id, policy.approval_timeout)
+    if answer is not None:
+        engine._log("approved" if answer else "declined", tool=tool, approval=approval_id, via="phone")
+    return answer
+
+
+def _phone_note(answer: bool) -> str:
+    from .explain import language
+
+    es = language() == "es"
+    if answer:
+        return "📱 Aprobado desde tu móvil." if es else "📱 Approved from your phone."
+    return "📱 Rechazado desde tu móvil." if es else "📱 Denied from your phone."
+
+
 def handle(event: dict[str, Any]) -> dict[str, Any] | None:
     """Process one hook event; return the JSON to print, or None to stay out of the way."""
     tool = str(event.get("tool_name", ""))
@@ -120,10 +144,17 @@ def handle(event: dict[str, Any]) -> dict[str, Any] | None:
             return None
         # shown to the user in Claude Code's permission prompt (ask) or relayed by the agent (deny)
         reason = engine.explain(tool, decision, tool_input) + f"\n[kairoseki: {decision.rule}]"
+        verdict = decision.action  # "ask" or "deny"
+        if verdict == "ask" and policy.denden is not None and policy.denden.prefer:
+            answer = phone_ask(engine, tool, decision, policy)
+            if answer is not None:
+                # your answer on the phone is the decision for this exact call: the one case a hook says allow
+                verdict = "allow" if answer else "deny"
+                reason += "\n" + _phone_note(answer)
         return {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": decision.action,  # "ask" or "deny"
+                "permissionDecision": verdict,
                 "permissionDecisionReason": reason,
             }
         }
@@ -186,6 +217,8 @@ def install(path: Path, undo: bool = False) -> bool:
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
     hooks = data.setdefault("hooks", {})
     changed = False
+    # long enough to wait for an answer from the phone (Den Den Mushi, approval timeout 120s by default)
+    ours = {"matcher": MATCHER, "hooks": [{"type": "command", "command": hook_command(), "timeout": HOOK_TIMEOUT}]}
     for event in ("PreToolUse", "PostToolUse"):
         groups = hooks.get(event) or []
         kept = [g for g in groups if not _is_ours(g)]
@@ -193,12 +226,9 @@ def install(path: Path, undo: bool = False) -> bool:
             changed |= len(kept) != len(groups)
             new = kept
         else:
-            if len(kept) != len(groups):
-                continue  # already installed
-            new = [
-                *kept,
-                {"matcher": MATCHER, "hooks": [{"type": "command", "command": hook_command(), "timeout": 10}]},
-            ]
+            if [g for g in groups if _is_ours(g)] == [ours]:
+                continue  # already installed and up to date
+            new = [*kept, ours]  # install, or upgrade an older install in place
             changed = True
         if new:
             hooks[event] = new

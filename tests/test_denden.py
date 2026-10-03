@@ -123,3 +123,63 @@ def test_proxy_rings_the_phone_and_forwards_an_approved_call(tmp_path: Path) -> 
     result = json.loads(line)["result"]
     assert not result.get("isError"), result  # forwarded to the server after the phone said yes
     assert len(replies) == 1
+
+
+def test_prefer_rings_the_phone_even_when_the_client_could_ask(tmp_path: Path) -> None:
+    """With prefer: true the proxy asks the phone before an in-client prompt (unattended agents)."""
+    replies: list[str] = []
+    published: list[dict[str, Any]] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            msg = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            published.append(msg)
+            replies.append(msg["actions"][0]["body"])
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write("\n".join(json.dumps({"message": r}) for r in replies).encode())
+
+        def log_message(self, *args: Any) -> None:
+            pass
+
+    ntfy = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=ntfy.serve_forever, daemon=True).start()
+    policy = tmp_path / "kairoseki.yaml"
+    policy.write_text(
+        f"denden:\n  topic: kairoseki-test-topic-123\n  url: http://127.0.0.1:{ntfy.server_port}\n  prefer: true\n"
+    )
+    session = Session()
+    session.mark("untrusted", "web", "fetch")
+    session.mark("private", "files", "read_file")
+    server = tmp_path / "echo.py"
+    server.write_text(ECHO_SERVER)
+    init = {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"capabilities": {"elicitation": {}}}}
+    call = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "send_email", "arguments": {}}}
+    proc = subprocess.Popen(
+        kairoseki_argv("run", "--name", "mail", "--policy", str(policy), "--", sys.executable, str(server)),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        encoding="utf-8",
+    )
+    try:
+        assert proc.stdin is not None and proc.stdout is not None
+        proc.stdin.write(json.dumps(init) + "\n" + json.dumps(call) + "\n")
+        proc.stdin.flush()
+        lines = [json.loads(proc.stdout.readline()) for _ in range(2)]
+    finally:
+        proc.kill()
+        ntfy.shutdown()
+    call_reply = next(m for m in lines if m.get("id") == 1)
+    assert not call_reply["result"].get("isError"), call_reply  # approved on the phone, forwarded
+    assert not any(m.get("method") == "elicitation/create" for m in lines)  # the screen was never asked
+    assert published and "send_email" in published[0]["title"]
+
+
+def test_policy_parses_prefer() -> None:
+    assert parse_policy({"denden": {"topic": "kairoseki-abcdefghijklmnop", "prefer": True}}).denden.prefer  # type: ignore[union-attr]
+    assert not parse_policy({"denden": {"topic": "kairoseki-abcdefghijklmnop"}}).denden.prefer  # type: ignore[union-attr]

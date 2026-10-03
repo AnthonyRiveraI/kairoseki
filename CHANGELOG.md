@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3
+
+* **Den Den Mushi in Claude Code.** `denden: prefer: true` rings your phone first even when the client could ask on
+  screen: in the MCP proxy (before elicitation) and in the Claude Code hooks for built-in tools. Approve or deny on the
+  phone decides that exact call; with no answer before the timeout it falls back to the on-screen prompt. Approving on
+  the phone is the one case where a hook answers *allow*.
+* `kairoseki hooks install` upgrades an older install in place; the hook timeout is now 180 s to leave room for a phone
+  approval. Run it again after upgrading.
+
 ## 0.2.2
 
 * **Explanations people understand.** Every ask or block now says, in plain words, what the agent was trying to do,

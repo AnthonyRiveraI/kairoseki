@@ -41,6 +41,7 @@ approval:
 #   topic: kairoseki-REPLACE-WITH-RANDOM
 #   url: https://ntfy.sh       # or your self-hosted ntfy
 #   token: ""                  # access token, if your ntfy server needs one
+#   prefer: true               # ring the phone first, even when the client (e.g. Claude Code) could ask on screen
 
 # Per-server overrides. Keys are the --name you give `kairoseki run` (globs allowed).
 # servers:
@@ -66,6 +67,7 @@ class DenDen:
     topic: str
     url: str = "https://ntfy.sh"
     token: str = ""
+    prefer: bool = False  # ring the phone even when the client could ask on screen (unattended agents)
 
 
 @dataclass
@@ -142,6 +144,7 @@ def parse_policy(data: dict[str, Any] | None) -> Policy:
             topic=topic,
             url=str(raw_dd.get("url") or "https://ntfy.sh").rstrip("/"),
             token=str(raw_dd.get("token") or ""),
+            prefer=_as_bool(raw_dd, "prefer", False),
         )
     return Policy(
         mode=mode,
