@@ -183,6 +183,27 @@ kairoseki attack --badge kairoseki.svg  # and get a README badge
 kairoseki scan --share card.svg         # a shareable report card of your setup (counts only, no paths)
 ```
 
+## Building your own agent? Use it as a library
+
+`Guard` puts the same engine around the Python tools of any framework. Calls are decided like MCP calls, results
+update the taint and get secrets redacted. The wrapper keeps the function's name, docstring and signature, so it
+goes *under* your framework's decorator:
+
+```python
+from claude_agent_sdk import tool
+from kairoseki import Guard, KairosekiBlocked
+
+guard = Guard()   # or Guard(on_ask=lambda tool, decision: input(f"allow {tool}? ") == "y")
+
+@tool("send_email", "Send an email", {"to": str, "body": str})
+@guard.tool()     # labels come from the name and docstring, or pass labels={"sink"}
+async def send_email(args): ...
+```
+
+A denied call raises `KairosekiBlocked`, which frameworks hand back to the model as a tool error. An *ask* goes to
+`on_ask`, or to your phone with [Den Den Mushi](#how-decisions-are-made), or is refused. The Guard also sets
+`KAIROSEKI_SESSION`, so MCP servers your agent starts through `kairoseki run` share its taint.
+
 ## GitHub Action
 
 Scan the `.mcp.json` your repo ships, or, if you **maintain an MCP server**, check on every PR that none of your tool
