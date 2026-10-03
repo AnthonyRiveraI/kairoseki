@@ -1,0 +1,30 @@
+{
+  "_doc": "Narration per scene. Each line must fit its scene (seconds) with room to breathe. Generate with tools/narrate.py.",
+  "voices": { "es": "es-MX-JorgeNeural", "en": "en-US-AndrewNeural" },
+  "scenes": [
+    { "id": "s1", "start": 0, "duration": 5,
+      "es": "Tu agente de IA lee internet... y también tus secretos.",
+      "en": "Your AI agent reads the internet... and your secrets." },
+    { "id": "s2", "start": 5, "duration": 8,
+      "es": "Basta una página con instrucciones escondidas: el agente lee tu punto env y le envía tu token a un atacante.",
+      "en": "One page with hidden instructions is enough: the agent reads your dot env and sends your token to an attacker." },
+    { "id": "s3", "start": 13, "duration": 9,
+      "es": "Con Kairoseki, el secreto nunca sale. Sabe de dónde viene cada dato, y frena la fuga aunque vaya codificada.",
+      "en": "With Kairoseki, the secret never leaves. It tracks where every piece of data came from, and stops the leak, even encoded." },
+    { "id": "s4", "start": 22, "duration": 9,
+      "es": "¿Una herramienta con órdenes ocultas en su descripción? Kairoseki la detecta y la bloquea antes de que tu agente la use.",
+      "en": "A tool with orders hidden in its description? Kairoseki spots it, and blocks it before your agent can use it." },
+    { "id": "s5", "start": 31, "duration": 9,
+      "es": "Un issue malicioso pide subir código privado a un pull request público. Kairoseki te pregunta antes, y te dice por qué.",
+      "en": "A malicious issue asks to copy private code into a public pull request. Kairoseki asks you first, and tells you why." },
+    { "id": "s6", "start": 40, "duration": 8,
+      "es": "¿Tu agente trabaja solo? Den Den Mushi te llama al móvil para que decidas tú.",
+      "en": "Agent working alone? Den Den Mushi rings your phone, so you make the call." },
+    { "id": "s7", "start": 48, "duration": 6,
+      "es": "Escanea tu configuración en segundos, y protégela con un solo comando.",
+      "en": "Scan your setup in seconds, and protect it with one command." },
+    { "id": "s8", "start": 54, "duration": 6,
+      "es": "Kairoseki. Open source. Pruébalo hoy.",
+      "en": "Kairoseki. Open source. Try it today." }
+  ]
+}
