@@ -298,6 +298,24 @@ kairoseki pins list       # servers whose tools changed since you pinned them
 kairoseki pins approve github
 ```
 
+## Evals
+
+Besides the attack lab, [`evals/`](evals) scores each piece against labeled data, with thresholds set before the first
+run (`uv run python evals/run.py`, also in CI):
+
+| Eval | Score |
+| :-- | --: |
+| Injection detector: precision on real tool descriptions | 94% |
+| Injection detector: recall, plainly worded attacks | 100% |
+| Injection detector: recall, paraphrased attacks | **0%** |
+| Tool labels: worst per-leg F1 on real tool names | 87% |
+| Claude Code hooks: attack sequences blocked | 10/10 |
+| Claude Code hooks: everyday coding sequences uninterrupted | 10/10 |
+
+The 0% is the point: no pattern list catches a well-written injection, which is why Kairoseki's guarantee comes from
+data flow (the trifecta rule and secret fingerprints), not from recognizing attacks. Paraphrased attacks in the lab are
+still blocked.
+
 ## How it compares
 
 | | Kairoseki | Pattern scanners / guardrail models | [mcp-context-protector](https://github.com/trailofbits/mcp-context-protector) | Enterprise MCP gateways |
