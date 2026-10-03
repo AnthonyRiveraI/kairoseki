@@ -185,7 +185,53 @@ reescribir, así que la redacción sigue siendo solo para MCP.
 ```bash
 kairoseki attack                        # pon nota a tu política actual
 kairoseki attack --badge kairoseki.svg  # y obtén un badge para tu README
+kairoseki scan --share card.svg         # una tarjeta para compartir de tu configuración (solo conteos, sin rutas)
 ```
+
+## MCP Risk Index
+
+Cada semana, [un workflow](.github/workflows/index.yml) escanea los servidores del
+[registro oficial de MCP](https://registry.modelcontextprotocol.io) que arrancan sin credenciales y publica el
+**[MCP Risk Index](https://anthonyriverai.github.io/kairoseki/)**: tools por tramo de la tríada, descripciones
+envenenadas y definiciones de tools que cambiaron desde el último escaneo (misma versión + definición cambiada = posible
+rug pull). Las etiquetas son heurísticas: una marca significa "vale la pena revisarlo", no "es malicioso". Genéralo tú
+mismo con `uv run python scripts/index/build.py --out site` (arranca servidores de terceros: usa una máquina desechable).
+
+## ¿Construyes tu propio agente? Úsalo como librería
+
+`Guard` pone el mismo motor alrededor de las tools en Python de cualquier framework. Las llamadas se deciden como las de
+MCP, y los resultados actualizan el taint y se les tapan los secretos. El wrapper conserva el nombre, el docstring y la
+firma de la función, así que va *debajo* del decorador de tu framework:
+
+```python
+from claude_agent_sdk import tool
+from kairoseki import Guard, KairosekiBlocked
+
+guard = Guard()   # o Guard(on_ask=lambda tool, decision: input(f"¿permitir {tool}? ") == "s")
+
+@tool("send_email", "Send an email", {"to": str, "body": str})
+@guard.tool()     # las etiquetas salen del nombre y el docstring, o pasa labels={"sink"}
+async def send_email(args): ...
+```
+
+Una llamada bloqueada lanza `KairosekiBlocked`, que los frameworks devuelven al modelo como error de la tool. Un *ask*
+va a `on_ask`, a tu teléfono con Den Den Mushi, o se rechaza. El Guard también define `KAIROSEKI_SESSION`, así que los
+servidores MCP que tu agente arranque con `kairoseki run` comparten su taint.
+
+## GitHub Action
+
+Escanea el `.mcp.json` que incluye tu repo o, si **mantienes un servidor MCP**, comprueba en cada PR que ninguna
+descripción de tus tools parezca un prompt injection:
+
+```yaml
+- uses: AnthonyRiveraI/kairoseki@v0.2.0
+  with:
+    command: node dist/index.js   # tu servidor; déjalo vacío para escanear .mcp.json
+    fail-on: F,D                  # F = tool envenenada, D = tríada letal por un servidor sin proteger
+```
+
+El resumen del job lista cada tool por tramo de la tríada, y se genera `kairoseki-card.svg` para tu README. La action
+arranca los servidores que escanea, así que úsala solo con comandos en los que confíes.
 
 ## Cómo decide
 
