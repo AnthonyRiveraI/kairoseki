@@ -34,6 +34,11 @@ jobs:
           uv run python scripts/index/build.py --out site --workers 12 --timeout 60
           --limit "${{ inputs.limit || '1000' }}"
           --previous "https://anthonyriverai.github.io/kairoseki/index.json"
+      - name: Add the launch video (attached to the release, served from Pages so it plays in the browser)
+        run: |
+          for l in en es; do
+            curl -fsSL -o "site/kairoseki-$l.mp4" "https://github.com/AnthonyRiveraI/kairoseki/releases/download/v0.2.3/kairoseki-$l.mp4"
+          done
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

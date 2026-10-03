@@ -33,7 +33,7 @@ kairoseki attack            # replay 9 real-world attacks against your setup and
 
 <p align="center">
   <img src="docs/assets/demo.gif" width="80%" alt="Pixel-art clip: an agent's ship sends a stolen token toward a pirate ship; the seastone drops from the sky, chains it in the sea, and Kairoseki explains why it blocked the call" /><br/>
-  <a href="https://github.com/AnthonyRiveraI/kairoseki/releases/download/v0.2.3/kairoseki-en.mp4">▶ Watch the 60-second video</a> · <a href="https://github.com/AnthonyRiveraI/kairoseki/releases/download/v0.2.3/kairoseki-es.mp4">en español</a>
+  <a href="https://anthonyriverai.github.io/kairoseki/video.html">▶ Watch the 60-second video</a> · <a href="https://anthonyriverai.github.io/kairoseki/video.html?lang=es">en español</a>
 </p>
 
 ## Why

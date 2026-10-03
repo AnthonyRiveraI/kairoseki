@@ -293,7 +293,8 @@ function renderLegend() {
 }
 function renderFooter() {
   const p = el("span"); p.append(t("footer", { date: data.generated.slice(0, 10), v: data.kairoseki }) + " ", el("code", null, "uvx kairoseki scan"), " · ");
-  const a = el("a", null, t("repo")); a.href = "https://github.com/AnthonyRiveraI/kairoseki"; p.append(a);
+  const a = el("a", null, t("repo")); a.href = "https://github.com/AnthonyRiveraI/kairoseki"; p.append(a, " · ");
+  const v = el("a", null, "▶ Video"); v.href = `video.html?lang=${lang}`; p.append(v);
   document.getElementById("footer").replaceChildren(sprite("rock", 3), p);
 }
 

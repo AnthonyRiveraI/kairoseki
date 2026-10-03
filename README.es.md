@@ -34,7 +34,7 @@ kairoseki attack            # repite 9 ataques reales contra tu configuración y
 
 <p align="center">
   <img src="docs/assets/demo-es.gif" width="80%" alt="Clip en pixel art: el barco de un agente envía un token robado hacia un barco pirata; la roca de kairoseki cae del cielo, lo encadena en el mar y Kairoseki explica por qué bloqueó la llamada" /><br/>
-  <a href="https://github.com/AnthonyRiveraI/kairoseki/releases/download/v0.2.3/kairoseki-es.mp4">▶ Mira el video de 60 segundos</a> · <a href="https://github.com/AnthonyRiveraI/kairoseki/releases/download/v0.2.3/kairoseki-en.mp4">in English</a>
+  <a href="https://anthonyriverai.github.io/kairoseki/video.html?lang=es">▶ Mira el video de 60 segundos</a> · <a href="https://anthonyriverai.github.io/kairoseki/video.html?lang=en">in English</a>
 </p>
 
 ## Por qué

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kairoseki Video</title>
+<meta name="description" content="60 seconds, in pixel art: how Kairoseki stops AI agents from leaking your data.">
+<meta property="og:title" content="Kairoseki: seastone for your AI agents">
+<meta property="og:description" content="60 seconds, in pixel art: how Kairoseki stops AI agents from leaking your data.">
+<meta property="og:image" content="https://anthonyriverai.github.io/kairoseki/poster-en.jpg">
+<meta property="og:video" content="https://anthonyriverai.github.io/kairoseki/kairoseki-en.mp4">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --night: #0b1026; --deep: #05070f; --gold: #f2c94c; --gold-dark: #d9a441; --parchment: #f4ecd8; --sea: #9fd3f0; --stone: #3a4663; --muted: #8a93b8; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--night); color: var(--parchment); font: 15px/1.6 "JetBrains Mono", ui-monospace, monospace; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 56px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  h1 { font: 700 clamp(22px, 5vw, 40px)/1.1 "Silkscreen", monospace; color: var(--gold); margin: 0; text-shadow: 3px 3px 0 var(--deep); }
+  .sub { color: var(--sea); font-family: "Silkscreen", monospace; font-size: clamp(11px, 2.4vw, 14px); margin: 6px 0 0; }
+  .lang { display: flex; border: 3px solid var(--gold-dark); background: var(--deep); }
+  .lang button { font: 700 13px "Silkscreen", monospace; color: var(--muted); background: none; border: 0; padding: 7px 12px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--gold); color: var(--deep); }
+  .frame { border: 4px solid var(--gold-dark); box-shadow: 8px 8px 0 var(--deep); background: var(--deep); }
+  video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; image-rendering: pixelated; background: var(--deep); }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; align-items: center; }
+  .cta code { background: var(--deep); color: var(--sea); padding: 8px 12px; border: 3px solid var(--stone); }
+  .btn { font: 700 13px "Silkscreen", monospace; color: var(--deep); background: var(--gold); border: 3px solid var(--gold-dark); padding: 8px 14px; text-decoration: none; box-shadow: 3px 3px 0 var(--deep); }
+  .btn.alt { background: var(--night); color: var(--parchment); border-color: var(--stone); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: none; }
+  p.note { color: var(--muted); font-size: 13px; margin-top: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>🪨 KAIROSEKI</h1>
+      <p class="sub" data-t="sub"></p>
+    </div>
+    <div class="lang" role="group" aria-label="Language / Idioma">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="es" aria-pressed="false">ES</button>
+    </div>
+  </header>
+  <div class="frame">
+    <video id="v" controls playsinline preload="metadata"></video>
+  </div>
+  <div class="cta">
+    <code>uvx kairoseki scan</code>
+    <a class="btn" href="https://github.com/AnthonyRiveraI/kairoseki" data-t="repo"></a>
+    <a class="btn alt" href="./" data-t="index"></a>
+  </div>
+  <p class="note" data-t="note"></p>
+</main>
+<script>
+  const COPY = {
+    en: { sub: "60 seconds, in pixel art", repo: "★ Repository", index: "MCP Risk Index", note: "Open source (MIT). Pixel art, voice and chiptune soundtrack made for Kairoseki." },
+    es: { sub: "60 segundos, en pixel art", repo: "★ Repositorio", index: "MCP Risk Index", note: "Open source (MIT). Pixel art, voz y música chiptune hechos para Kairoseki." },
+  };
+  const v = document.getElementById("v");
+  let lang = new URLSearchParams(location.search).get("lang") || "";
+  try { lang = lang || localStorage.getItem("ks-lang") || ""; } catch { /* private mode */ }
+  if (!COPY[lang]) lang = (navigator.language || "en").slice(0, 2) === "es" ? "es" : "en";
+  function apply() {
+    document.documentElement.lang = lang;
+    for (const n of document.querySelectorAll("[data-t]")) n.textContent = COPY[lang][n.dataset.t];
+    for (const b of document.querySelectorAll(".lang button")) b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+    const at = v.currentTime, playing = !v.paused;
+    v.poster = `poster-${lang}.jpg`;
+    v.src = `kairoseki-${lang}.mp4`;
+    if (at) { v.currentTime = at; if (playing) v.play(); }
+  }
+  for (const b of document.querySelectorAll(".lang button")) b.addEventListener("click", () => {
+    lang = b.dataset.lang; try { localStorage.setItem("ks-lang", lang); } catch { /* private mode */ }
+    apply();
+  });
+  apply();
+</script>
+</body>
+</html>

@@ -254,7 +254,8 @@ def build(out: Path, limit: int, workers: int, timeout: float, previous_url: str
     }
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.json").write_text(json.dumps(index, indent=1), encoding="utf-8")
-    shutil.copy2(SITE / "index.html", out / "index.html")
+    for page in SITE.iterdir():  # index.html, the video player, posters
+        shutil.copy2(page, out / page.name)
     return index
 
 
