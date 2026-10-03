@@ -230,7 +230,8 @@ def test_wrap_prints_a_protection_summary_and_status_lists_it(tmp_path: Path) ->
             }
         )
     )
-    env = {**os.environ, "HOME": str(home), "USERPROFILE": str(home), "COLUMNS": "200"}
+    # APPDATA too: on Windows the Claude Desktop config lives there, not under the home dir
+    env = {**os.environ, "HOME": str(home), "USERPROFILE": str(home), "APPDATA": str(home), "COLUMNS": "200"}
     before = subprocess.run(kairoseki_argv("status"), capture_output=True, encoding="utf-8", cwd=tmp_path, env=env)
     assert "not protected" in before.stdout and "0 protected, 1 not protected" in before.stdout
     assert "project" in before.stdout  # .mcp.json is Claude Code's project scope

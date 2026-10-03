@@ -48,10 +48,13 @@ def _name(path: str) -> str:
     return name[:-4] if name.endswith(".exe") else name
 
 
-def is_launcher(proc: Proc, interpreters: set[str]) -> bool:
-    """Is ``proc`` part of Kairoseki's own launch chain? ``interpreters`` may be raw or normalized paths."""
+def is_launcher(proc: Proc, interpreters: set[str], extra: frozenset[str] = frozenset()) -> bool:
+    """Is ``proc`` part of Kairoseki's own launch chain? ``interpreters`` may be raw or normalized paths.
+
+    ``extra`` adds executable names to skip, e.g. the shells a client runs hook commands through.
+    """
     name = _name(proc.exe)
-    if name in _LAUNCHER_NAMES or name.startswith("kairoseki"):
+    if name in _LAUNCHER_NAMES or name in extra or name.startswith("kairoseki"):
         return True
     if "/" not in proc.exe and "\\" not in proc.exe:
         # only an executable name is known (e.g. `ps -o comm=` on some systems): compare names
@@ -194,7 +197,11 @@ def _reader() -> Callable[[int], Proc | None]:
 
 
 def find_client(
-    read: Callable[[int], Proc | None], pid: int, interpreters: set[str], trace: list[str] | None = None
+    read: Callable[[int], Proc | None],
+    pid: int,
+    interpreters: set[str],
+    trace: list[str] | None = None,
+    extra: frozenset[str] = frozenset(),
 ) -> Proc | None:
     """Walk up from ``pid`` and return the first ancestor that is not one of our launchers.
 
@@ -220,7 +227,7 @@ def find_client(
         if parent.start.isdigit() and current.start.isdigit() and int(parent.start) > int(current.start):
             log(f"stop: parent {parent.pid} is newer than its child (pid reused)")
             return current
-        if not is_launcher(parent, interpreters):
+        if not is_launcher(parent, interpreters, extra):
             log(f"client  {parent}")
             return parent
         log(f"skip    {parent}")
@@ -229,13 +236,13 @@ def find_client(
     return current
 
 
-def client_session_id(trace: list[str] | None = None) -> str:
+def client_session_id(trace: list[str] | None = None, extra: frozenset[str] = frozenset()) -> str:
     """``proc-<pid>-<start>`` of the MCP client process; falls back to the parent pid."""
     try:
         interpreters = _own_interpreters()
         if trace is not None:
             trace.append(f"interpreters {sorted(interpreters | {_norm(i) for i in interpreters})}")
-        client = find_client(_reader(), os.getpid(), interpreters, trace)
+        client = find_client(_reader(), os.getpid(), interpreters, trace, extra)
     except Exception as e:  # never let process inspection break the proxy
         if trace is not None:
             trace.append(f"error: {e!r}")

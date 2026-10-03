@@ -158,7 +158,28 @@ Reinicia tu cliente y comprueba que el servidor conecta (en Claude Code: `claude
 > línea de comandos con los *roots* del cliente. Claude Code envía la carpeta del proyecto, así que el servidor
 > usará esa carpeta y no la de tu configuración.
 
-### 4. Intenta romperlo
+### 4. Protege también las tools propias de Claude Code
+
+`Bash`, `WebFetch`, `WebSearch`, `Read` y `Grep` de Claude Code no pasan por MCP. Kairoseki las cubre con
+[hooks](https://docs.claude.com/en/docs/claude-code/hooks), en la **misma sesión** que tus servidores envueltos:
+
+```bash
+kairoseki hooks install            # ~/.claude/settings.json (--scope project|local para un solo proyecto)
+kairoseki hooks uninstall
+```
+
+| Tool propia | Su salida | La llamada en sí |
+| :-- | :-- | :-- |
+| `WebFetch`, `WebSearch` | untrusted | `WebFetch` es sink cuando la URL puede llevar datos (un valor en la query, un tramo largo y aleatorio en la ruta o el host) |
+| `Read`, `Grep` | private | - |
+| `Bash` | private, o untrusted para `curl`, `wget`, `gh issue view`, `gh api`... | sink para `curl`, `ssh`, `git push`, `gh pr`, `npm publish`... |
+
+Un secreto visto en la sesión se bloquea en cualquier URL o comando, aunque vaya codificado. Un sink después de
+contenido no confiable y datos privados activa el aviso de permisos de Claude Code. Los hooks solo responden *ask* o
+*deny*, nunca *allow*: pueden endurecer tus permisos, nunca relajarlos. La salida de las tools propias no se puede
+reescribir, así que la redacción sigue siendo solo para MCP.
+
+### 5. Intenta romperlo
 
 ```bash
 kairoseki attack                        # pon nota a tu política actual
@@ -246,8 +267,9 @@ mcp-context-protector de Trail of Bits. Las dos herramientas se complementan.
 
 ## Limitaciones (léelas)
 
-* **Solo ve el tráfico MCP.** Las tools propias del cliente (por ejemplo `Bash` o `WebFetch` de Claude Code) no pasan
-  por MCP. Combina Kairoseki con las reglas de permisos de tu cliente.
+* **Ve el tráfico MCP, y las tools propias de Claude Code mediante hooks.** Las tools propias de otros clientes
+  (Cursor, Gemini CLI...) aún no están cubiertas. `Bash` se etiqueta por el nombre del comando, así que una llamada de
+  red escondida dentro de un script no se ve como sink: combina Kairoseki con las reglas de permisos de tu cliente.
 * **Las etiquetas son heurísticas.** Los nombres y descripciones de las tools se leen como verbo + objeto (`get_issue`,
   `send_email`). Pueden equivocarse, y la [política](#política) te deja corregirlas. Las anotaciones del servidor solo
   pueden *sumar* riesgo, nunca quitarlo.

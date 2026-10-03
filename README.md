@@ -155,7 +155,27 @@ Restart your client and check that the server connects (with Claude Code: `claud
 > line with the client's *roots*. Claude Code sends the project directory, so the server will serve that folder,
 > not the one in your config.
 
-### 4. Try to break it
+### 4. Protect Claude Code's built-in tools too
+
+Claude Code's own `Bash`, `WebFetch`, `WebSearch`, `Read` and `Grep` never go through MCP. Kairoseki covers them with
+[hooks](https://docs.claude.com/en/docs/claude-code/hooks), in the **same session** as your wrapped servers:
+
+```bash
+kairoseki hooks install            # ~/.claude/settings.json (--scope project|local for one project)
+kairoseki hooks uninstall
+```
+
+| Built-in tool | Its output | The call itself |
+| :-- | :-- | :-- |
+| `WebFetch`, `WebSearch` | untrusted | `WebFetch` is a sink when the URL can carry data (a query value, a long random-looking path or host label) |
+| `Read`, `Grep` | private | - |
+| `Bash` | private, or untrusted for `curl`, `wget`, `gh issue view`, `gh api`... | a sink for `curl`, `ssh`, `git push`, `gh pr`, `npm publish`... |
+
+A secret seen anywhere in the session is denied in any URL or command, even encoded. A sink after untrusted content and
+private data gets Claude Code's own permission prompt. Hooks only ever answer *ask* or *deny*, never *allow*: they can
+tighten your permissions, never loosen them. Built-in output can't be rewritten, so redaction stays MCP-only.
+
+### 5. Try to break it
 
 ```bash
 kairoseki attack                        # grade your current policy
@@ -231,6 +251,7 @@ kairoseki pins approve github
 | :-- | :--: | :--: | :--: | :--: |
 | Blocks rephrased or novel injections (data-flow based) | ✅ | ❌ | ❌ | ➖ |
 | Taint shared across servers in one session | ✅ | ❌ | ❌ | ➖ |
+| Covers the client's built-in tools (Claude Code hooks) | ✅ | ➖ | ❌ | ❌ |
 | Detects encoded secret exfiltration | ✅ | ➖ | ❌ | ➖ |
 | Rug-pull pinning | ✅ | ❌ | ✅ | ✅ |
 | Poisoned descriptions, ANSI, invisible Unicode | ✅ | ✅ | ✅ | ➖ |
@@ -242,8 +263,9 @@ excellent mcp-context-protector. The two are complementary.
 
 ## Limitations (please read)
 
-* **It only sees MCP traffic.** Built-in client tools (for example Claude Code's own `Bash` or `WebFetch`) never go
-  through MCP. Pair Kairoseki with your client's permission rules.
+* **It sees MCP traffic, plus Claude Code's built-in tools through hooks.** Other clients' built-in tools (Cursor,
+  Gemini CLI...) are not covered yet. `Bash` is labeled by command name, so a network call hidden inside a script
+  file isn't seen as a sink: pair Kairoseki with your client's permission rules.
 * **Labels are heuristics.** Tool names and descriptions are read as verb + object (`get_issue`, `send_email`).
   They can be wrong, and the [policy](#policy) lets you fix them. Server annotations can only *add* risk, never remove it.
 * **Taint is per session and coarse on purpose.** Once untrusted content is in the context, Kairoseki assumes it may

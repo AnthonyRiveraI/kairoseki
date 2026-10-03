@@ -170,6 +170,36 @@ def cmd_wrap(a: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------- hooks
+def cmd_hook(a: argparse.Namespace) -> int:
+    from .hooks import run_hook
+
+    return run_hook()
+
+
+def cmd_hooks(a: argparse.Namespace) -> int:
+    from .hooks import install, installed, settings_path
+
+    path = settings_path(a.scope)
+    if a.action == "status":
+        state = "[green]🪨 installed[/green]" if installed(path) else "[red]not installed[/red]"
+        console.print(f"Claude Code built-in tools ({a.scope}, {path}): {state}")
+        return 0
+    changed = install(path, undo=a.action == "uninstall")
+    if not changed:
+        console.print(f"Nothing to do: hooks already {'absent from' if a.action == 'uninstall' else 'in'} {path}")
+        return 0
+    if a.action == "uninstall":
+        console.print(f"[green]Removed[/green] Kairoseki hooks from {path}")
+    else:
+        console.print(
+            f"[green]Installed[/green] Kairoseki hooks in {path}\n"
+            "Bash, WebFetch, WebSearch, Read and Grep now share taint with your wrapped MCP servers.\n"
+            "Restart Claude Code (or run /hooks) to load them."
+        )
+    return 0
+
+
 # ---------------------------------------------------------------------------- attack
 def cmd_attack(a: argparse.Namespace) -> int:
     from .lab.attack import run_lab
@@ -406,6 +436,16 @@ def build_parser() -> argparse.ArgumentParser:
     w.add_argument("--undo", action="store_true", help="restore the original commands")
     w.add_argument("--all-projects", action="store_true", help="include Claude Code local servers of every project")
     w.set_defaults(func=cmd_wrap)
+
+    hk = sub.add_parser("hook", help="handle one Claude Code hook event on stdin (used by `kairoseki hooks install`)")
+    hk.set_defaults(func=cmd_hook)
+
+    hs = sub.add_parser("hooks", help="protect Claude Code's built-in tools (Bash, WebFetch, Read...) with hooks")
+    hs.add_argument("action", choices=["install", "uninstall", "status"])
+    hs.add_argument(
+        "--scope", choices=["user", "project", "local"], default="user", help="which Claude Code settings file"
+    )
+    hs.set_defaults(func=cmd_hooks)
 
     at = sub.add_parser("attack", help="replay real-world MCP attacks against Kairoseki and grade it")
     at.add_argument("--policy", help="policy YAML to test")
