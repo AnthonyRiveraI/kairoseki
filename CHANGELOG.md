@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.0
+
+Beyond MCP: the client's own tools, your own agents, remote servers, your phone, and the whole registry.
+
+* **Claude Code's built-in tools.** `kairoseki hooks install` covers `Bash`, `WebFetch`, `WebSearch`, `Read` and
+  `Grep` with PreToolUse/PostToolUse hooks, in the same taint session as your wrapped MCP servers. Hooks only ever
+  answer ask or deny, never allow. `WebFetch` counts as a sink only when its URL can carry data.
+* **Library.** `from kairoseki import Guard`: `@guard.tool()` puts the engine around the Python tools of any agent
+  framework (Claude Agent SDK, OpenAI Agents SDK, LangChain...), sync or async, keeping their signature.
+* **Remote servers.** `kairoseki wrap --remote` bridges Streamable HTTP and SSE servers through mcp-remote, which also
+  handles their OAuth. `--undo` restores the original entries.
+* **🐌 Den Den Mushi.** Approve risky calls from your phone with the free ntfy app (`kairoseki denden setup`).
+  Only server, tool and reason are sent; answers are bound to the approval and a fresh nonce.
+* **Shareable report card.** `kairoseki scan` ends with a grade, `--share card.svg` writes a card with counts only,
+  `--json` gives machine-readable output.
+* **GitHub Action.** `uses: AnthonyRiveraI/kairoseki@v0.2.0` scans a repo's `.mcp.json`, or an MCP server's own tools
+  for poisoned descriptions, on every PR.
+* **MCP Risk Index.** A weekly scan of the official MCP registry, published to GitHub Pages: tools by trifecta leg,
+  poisoned descriptions, and tool definitions that changed silently.
+* Fix: local-scope servers of the enclosing git root are found when Claude Code was started in a subfolder.
+* Fix: warnings such as "do not include credentials" are no longer flagged as injections (found in the registry).
+* Wiki reads are labeled untrusted.
+
 ## 0.1.2
 
 * Fix false positives from fragment fingerprints: vendor prefixes shared by every key (`sk-ant-api03-` is exactly
