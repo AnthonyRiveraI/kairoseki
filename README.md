@@ -180,7 +180,23 @@ tighten your permissions, never loosen them. Built-in output can't be rewritten,
 ```bash
 kairoseki attack                        # grade your current policy
 kairoseki attack --badge kairoseki.svg  # and get a README badge
+kairoseki scan --share card.svg         # a shareable report card of your setup (counts only, no paths)
 ```
+
+## GitHub Action
+
+Scan the `.mcp.json` your repo ships, or, if you **maintain an MCP server**, check on every PR that none of your tool
+descriptions reads like a prompt injection:
+
+```yaml
+- uses: AnthonyRiveraI/kairoseki@v0.2.0
+  with:
+    command: node dist/index.js   # your server; leave empty to scan .mcp.json instead
+    fail-on: F,D                  # F = poisoned tool, D = lethal trifecta through an unprotected server
+```
+
+The job summary lists every tool by trifecta leg, and `kairoseki-card.svg` is written for your README. The action
+starts the servers it scans, so only point it at commands you trust.
 
 ## How decisions are made
 

@@ -40,6 +40,18 @@ jobs:
       - run: uv pip install -e . "${{ matrix.mcp }}" pytest pytest-asyncio
       - run: uv run --no-sync pytest -q
 
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The GitHub Action scans an MCP server
+        id: scan
+        uses: ./
+        with:
+          command: uvx --from . python -m kairoseki.lab.server --role web
+          fail-on: F
+      - run: test -s kairoseki-card.svg && echo "grade ${{ steps.scan.outputs.grade }}"
+
   attack-lab:
     runs-on: ubuntu-latest
     steps:

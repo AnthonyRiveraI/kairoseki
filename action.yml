@@ -1,0 +1,80 @@
+name: Kairoseki MCP scan
+description: Scan MCP servers for poisoned tool descriptions and the lethal trifecta, and grade the setup.
+author: Anthony Rivera
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  command:
+    description: >
+      Start one MCP server and scan its tools (for MCP server authors), e.g. "node dist/index.js".
+      Leave empty to scan the MCP client config in `config` instead.
+    default: ""
+  config:
+    description: MCP client config to scan when `command` is empty.
+    default: .mcp.json
+  fail-on:
+    description: Comma-separated grades that fail the job (A, B, D, F).
+    default: F,D
+  card:
+    description: Where to write the shareable SVG report card.
+    default: kairoseki-card.svg
+  version:
+    description: Kairoseki version from PyPI. Empty uses the code of the action ref itself (e.g. @v0.2.0).
+    default: ""
+
+outputs:
+  grade:
+    description: The grade of the scanned setup.
+    value: ${{ steps.scan.outputs.grade }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v6
+    - id: scan
+      shell: bash
+      env:
+        KS_COMMAND: ${{ inputs.command }}
+        KS_CONFIG: ${{ inputs.config }}
+        KS_CARD: ${{ inputs.card }}
+        KS_FAIL_ON: ${{ inputs.fail-on }}
+        KS_VERSION: ${{ inputs.version }}
+        KS_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        spec="$KS_ACTION_PATH"
+        if [ -n "$KS_VERSION" ]; then spec="kairoseki==$KS_VERSION"; fi
+        if [ -n "$KS_COMMAND" ]; then
+          read -ra target <<< "$KS_COMMAND"
+          set -- -- "${target[@]}"
+        else
+          set -- --config "$KS_CONFIG"
+        fi
+        uvx --from "$spec" kairoseki scan --json --share "$KS_CARD" "$@" > kairoseki-scan.json || true
+        uv run --no-project python - <<'PY'
+        import json, os
+        data = json.load(open("kairoseki-scan.json"))
+        grade, fail_on = data["grade"], {g.strip().upper() for g in os.environ["KS_FAIL_ON"].split(",") if g.strip()}
+        legs = data["legs"]
+        lines = [
+            f"## 🪨 Kairoseki: grade {grade}",
+            f"**{data['verdict']}**",
+            "",
+            "| leg | tools |",
+            "| :-- | :-- |",
+            *(f"| {leg} | {', '.join(tools) or '-'} |" for leg, tools in legs.items()),
+            "",
+            f"Poisoned tools: {', '.join(data['poisoned']) or 'none'}",
+            f"Unprotected servers: {', '.join(data['unprotected']) or 'none'}",
+        ]
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"grade={grade}\n")
+        for tool in data["poisoned"]:
+            print(f"::error title=Poisoned MCP tool::{tool} has prompt-injection text in its definition")
+        if grade in fail_on:
+            print(f"::error title=Kairoseki grade {grade}::{data['verdict']}")
+            raise SystemExit(1)
+        PY
