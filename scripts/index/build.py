@@ -28,6 +28,7 @@ from kairoseki import __version__
 from kairoseki.client import StdioClient
 from kairoseki.detect import find_injection, sanitize
 from kairoseki.labels import PRIVATE, SINK, UNTRUSTED, classify
+from kairoseki.proxy import CAPS_META_KEY, VERSION_META_KEY
 from kairoseki.store import tool_digest
 
 REGISTRY = "https://registry.modelcontextprotocol.io/v0/servers"
@@ -84,9 +85,12 @@ def remote_url(server: dict[str, Any]) -> str | None:
     return None
 
 
+HANDSHAKE_ERA, MODERN_ERA = "2025-06-18", "2026-07-28"
+
+
 def http_list_tools(url: str, timeout: float) -> list[dict[str, Any]]:
-    """initialize + tools/list over Streamable HTTP, without auth. Raises PermissionError on 401/403."""
-    session: dict[str, str] = {}
+    """tools/list over Streamable HTTP, without auth, in either protocol era. PermissionError on 401/403."""
+    session: dict[str, str] = {"MCP-Protocol-Version": HANDSHAKE_ERA}
 
     def rpc(method: str, params: dict[str, Any], msg_id: int | None) -> dict[str, Any] | None:
         body: dict[str, Any] = {"jsonrpc": "2.0", "method": method, "params": params}
@@ -95,16 +99,19 @@ def http_list_tools(url: str, timeout: float) -> list[dict[str, Any]]:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
-            "MCP-Protocol-Version": "2025-06-18",
             "User-Agent": f"kairoseki-index/{__version__}",
             **session,
         }
+        if session["MCP-Protocol-Version"] == MODERN_ERA:
+            headers["Mcp-Method"] = method  # 2026-07-28: must match the body, so gateways can route without parsing it
         req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=headers, method="POST")
         try:
             resp = urllib.request.urlopen(req, timeout=timeout)  # registry https URL
         except urllib.error.HTTPError as e:
             if e.code in (401, 403):
                 raise PermissionError("needs auth") from e
+            if e.code == 400 and "json" in (e.headers.get("Content-Type") or ""):
+                return dict(json.loads(e.read()))  # a JSON-RPC error, e.g. an unsupported protocol version
             raise
         with resp:
             if resp.headers.get("Mcp-Session-Id"):
@@ -122,16 +129,25 @@ def http_list_tools(url: str, timeout: float) -> list[dict[str, Any]]:
         return dict(json.loads(raw))
 
     init = {
-        "protocolVersion": "2025-06-18",
+        "protocolVersion": HANDSHAKE_ERA,
         "capabilities": {},
         "clientInfo": {"name": "kairoseki-index", "version": __version__},
     }
-    rpc("initialize", init, 1)
-    rpc("notifications/initialized", {}, None)
+    reply = rpc("initialize", init, 1) or {}
+    meta: dict[str, Any] = {}
+    supported = ((reply.get("error") or {}).get("data") or {}).get("supported") or []
+    if MODERN_ERA in supported:
+        # 2026-07-28 servers have no handshake: every request carries its protocol version in _meta
+        session["MCP-Protocol-Version"] = MODERN_ERA
+        meta = {"_meta": {VERSION_META_KEY: MODERN_ERA, CAPS_META_KEY: {}}}
+    elif "error" in reply:
+        raise ValueError(str(reply["error"])[:200])
+    else:
+        rpc("notifications/initialized", {}, None)
     tools: list[dict[str, Any]] = []
     cursor: str | None = None
     for page in range(2, 12):
-        reply = rpc("tools/list", {"cursor": cursor} if cursor else {}, page) or {}
+        reply = rpc("tools/list", {**meta, **({"cursor": cursor} if cursor else {})}, page) or {}
         if "error" in reply:
             raise ValueError(str(reply["error"])[:200])
         result = reply.get("result") or {}
