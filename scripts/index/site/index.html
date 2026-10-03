@@ -5,148 +5,395 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MCP Risk Index</title>
 <meta name="description" content="Every MCP server in the official registry, scanned by Kairoseki: lethal-trifecta legs, poisoned tool descriptions and silent tool changes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f6f7fb; --panel: #ffffff; --text: #141a2e; --muted: #5b6478; --line: #e1e4ee;
-    --gold: #9a6b00; --red: #c62828; --green: #1f7a3a; --amber: #8a5a00; --chip: #eef0f7;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0b1026; --panel: #121937; --text: #e6edf3; --muted: #9aa4bf; --line: #252f55;
-      --gold: #f2c94c; --red: #ff6b6b; --green: #56d364; --amber: #e3b341; --chip: #1b2448;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #0b1026; --panel: #121937; --text: #e6edf3; --muted: #9aa4bf; --line: #252f55;
-    --gold: #f2c94c; --red: #ff6b6b; --green: #56d364; --amber: #e3b341; --chip: #1b2448;
+    --night-0: #0b1026; --night-1: #111a3a; --night-2: #18244d; --deep: #05070f;
+    --gold: #f2c94c; --gold-dark: #d9a441; --parchment: #f4ecd8; --sea: #9fd3f0; --star: #c9d6ff;
+    --stone-dark: #3a4663;
+    --red: #ff6b6b; --green: #7ee08a; --panel: #121a3c; --panel-2: #0e1532; --muted: #8a93b8;
+    --pixel: "Silkscreen", ui-monospace, monospace; --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
-  h1 { font-size: 28px; margin: 0 0 4px; }
-  h1 span { color: var(--gold); }
-  .lede { color: var(--muted); margin: 0 0 24px; max-width: 70ch; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .stat b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
-  .stat small { color: var(--muted); }
-  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  input[type=search] { flex: 1 1 240px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
-  .filter { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; font: inherit; }
-  .filter[aria-pressed="true"] { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
-  .list { display: grid; gap: 8px; }
-  details { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-  summary { list-style: none; cursor: pointer; padding: 12px 16px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+  html { background: var(--night-0); }
+  body { margin: 0; color: var(--parchment); background: var(--night-0); font: 14px/1.6 var(--mono); }
+  a { color: var(--sea); }
+  a:hover { color: var(--gold); }
+  ::selection { background: var(--gold); color: var(--deep); }
+  svg.sprite { image-rendering: pixelated; shape-rendering: crispEdges; display: block; flex: none; }
+
+  /* ------------------------------------------------------------ header: the night sea of the README banner */
+  .sky {
+    position: relative; overflow: hidden; border: 4px solid var(--gold-dark); margin: 16px auto 0; max-width: 1100px;
+    background: linear-gradient(var(--night-0) 0 33%, var(--night-1) 33% 66%, var(--night-2) 66% 100%);
+  }
+  .stars i { position: absolute; width: 4px; height: 4px; background: var(--star); animation: twinkle var(--d) steps(2) infinite var(--b); }
+  @keyframes twinkle { 50% { opacity: .2; } }
+  .hero { position: relative; display: flex; align-items: center; gap: 28px; padding: 40px 32px 76px; }
+  .rock { flex: none; animation: bob 2.4s steps(1) infinite; cursor: pointer; background: none; border: 0; padding: 0; }
+  .rock:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+  @keyframes bob { 50% { transform: translateY(-4px); } }
+  h1 { font: 700 clamp(26px, 6vw, 56px)/1 var(--pixel); color: var(--gold); margin: 0; letter-spacing: 2px; text-shadow: 4px 4px 0 var(--deep); }
+  .sub { font: 400 clamp(13px, 2.2vw, 20px)/1.3 var(--pixel); color: var(--parchment); margin: 12px 0 4px; text-shadow: 2px 2px 0 var(--deep); }
+  .tag { font: 400 clamp(11px, 1.6vw, 14px)/1.4 var(--pixel); color: var(--sea); margin: 0; }
+  .waves {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 28px;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 24px, var(--sea) 24px 32px, transparent 32px 64px) 0 4px / 64px 4px repeat-x,
+      repeating-linear-gradient(90deg, transparent 0 16px, #6fb6e0 16px 40px, transparent 40px 64px) 0 8px / 64px 4px repeat-x,
+      linear-gradient(#2b4f86, #1b3566) 0 12px / 100% 16px no-repeat;
+    animation: sail 3.2s steps(8) infinite;
+  }
+  @keyframes sail { to { background-position: 64px 4px, -64px 8px, 0 12px; } }
+  .lang { position: absolute; top: 12px; right: 12px; display: flex; border: 3px solid var(--gold-dark); background: var(--deep); z-index: 2; }
+  .lang button { font: 700 12px var(--pixel); color: var(--muted); background: none; border: 0; padding: 6px 10px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--gold); color: var(--deep); }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 0 16px 64px; }
+  .note { margin: 20px 0; padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start; background: var(--parchment); color: #3b2a14; box-shadow: 4px 4px 0 var(--deep); border: 3px solid #b88a3b; }
+  .note b { font-family: var(--pixel); font-weight: 700; }
+  .note a { color: #7a4a1f; }
+
+  /* ------------------------------------------------------------ stats as log cards */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 20px 0 24px; }
+  .stat { background: var(--panel); border: 3px solid var(--stone-dark); box-shadow: 4px 4px 0 var(--deep); padding: 14px; display: flex; gap: 12px; align-items: center; }
+  .stat b { display: block; font: 700 30px/1 var(--pixel); color: var(--gold); text-shadow: 2px 2px 0 var(--deep); }
+  .stat small { color: var(--muted); font-size: 12px; line-height: 1.3; display: block; margin-top: 4px; }
+
+  /* ------------------------------------------------------------ legend + controls */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0 0 6px; color: var(--muted); font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; position: sticky; top: 0; z-index: 3; padding: 12px 0; background: var(--night-0); }
+  input[type=search] { flex: 1 1 260px; min-width: 0; padding: 10px 12px; font: 14px var(--mono); color: var(--parchment); background: var(--panel-2); border: 3px solid var(--stone-dark); outline: none; }
+  input[type=search]:focus { border-color: var(--gold-dark); }
+  input[type=search]::placeholder { color: var(--muted); }
+  .filter { display: inline-flex; align-items: center; gap: 8px; }
+  .filter, .more, .copy { font: 700 12px var(--pixel); color: var(--parchment); background: var(--panel); border: 3px solid var(--stone-dark); padding: 8px 12px; cursor: pointer; box-shadow: 3px 3px 0 var(--deep); }
+  .filter:hover, .more:hover, .copy:hover { border-color: var(--gold-dark); }
+  .filter:active, .more:active, .copy:active { transform: translate(3px, 3px); box-shadow: none; }
+  .filter[aria-pressed="true"] { background: var(--gold); color: var(--deep); border-color: var(--gold-dark); }
+  .count { color: var(--muted); font-size: 12px; margin: 0 0 10px; }
+
+  /* ------------------------------------------------------------ server cards */
+  .list { display: grid; gap: 12px; }
+  details.card { background: var(--panel); border: 3px solid var(--stone-dark); box-shadow: 4px 4px 0 var(--deep); }
+  details.card[open] { border-color: var(--gold-dark); }
+  details.card.seastone { border-left: 8px solid var(--gold); }
+  details.card.poisoned { border-left: 8px solid var(--red); }
+  summary { list-style: none; cursor: pointer; padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: start; }
   summary::-webkit-details-marker { display: none; }
-  .name { font-weight: 600; overflow-wrap: anywhere; }
-  .desc { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
-  .badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
-  .badge.red { color: var(--red); } .badge.green { color: var(--green); } .badge.amber { color: var(--amber); }
-  .body { padding: 0 16px 14px; font-size: 13px; }
-  .body code { background: var(--chip); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  td, th { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 500; }
-  footer { color: var(--muted); font-size: 13px; margin-top: 32px; }
-  a { color: var(--gold); }
-  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  summary:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .name { font-weight: 600; color: var(--parchment); overflow-wrap: anywhere; }
+  .name small { color: var(--muted); font-weight: 400; }
+  .desc { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .meter { display: flex; gap: 4px; }
+  .slot { width: 34px; height: 34px; display: grid; place-items: center; background: var(--panel-2); border: 2px solid var(--stone-dark); }
+  .slot.off .sprite { opacity: .18; filter: grayscale(1); }
+  .slot.on { border-color: var(--sea); }
+  .chips { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: 700 11px var(--pixel); padding: 3px 8px; background: var(--panel-2); border: 2px solid var(--stone-dark); color: var(--parchment); display: inline-flex; align-items: center; gap: 6px; }
+  .chip.gold { color: var(--deep); background: var(--gold); border-color: var(--gold-dark); }
+  .chip.red { color: var(--red); border-color: var(--red); }
+  .chip.green { color: var(--green); border-color: #3d7a45; }
+  .chip.amber { color: var(--gold); border-color: var(--gold-dark); }
+  .body { padding: 0 16px 16px; font-size: 13px; }
+  .body code { background: var(--panel-2); color: var(--sea); padding: 1px 6px; overflow-wrap: anywhere; }
+  .body p { margin: 6px 0; }
+  .protect { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0; padding: 10px; background: var(--panel-2); border: 2px dashed var(--gold-dark); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { text-align: left; padding: 6px 8px; border-top: 2px solid var(--stone-dark); vertical-align: top; overflow-wrap: anywhere; }
+  th { font: 700 11px var(--pixel); color: var(--muted); }
+  td .legs { display: flex; gap: 4px; }
+  .empty { color: var(--muted); padding: 32px; text-align: center; font-family: var(--pixel); }
+  .more { display: block; margin: 18px auto 0; }
+
+  footer { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; color: var(--muted); font-size: 12px; border-top: 3px dashed var(--stone-dark); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  footer code { color: var(--gold); }
+
+  @media (max-width: 640px) {
+    .hero { flex-direction: column; align-items: flex-start; gap: 14px; padding: 52px 18px 64px; }
+    summary { grid-template-columns: 1fr; }
+    .meter { order: -1; }
+    .sky { margin: 0; border-width: 0 0 4px; }
+    .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 </style>
 </head>
 <body>
-<main>
-  <h1><span>🪨</span> MCP Risk Index</h1>
-  <p class="lede">Every MCP server in the official registry that can start without credentials, scanned by
-    <a href="https://github.com/AnthonyRiveraI/kairoseki">Kairoseki</a>: which tools look like legs of the
-    <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">lethal trifecta</a>, which tool descriptions read
-    like prompt injections, and which tools changed silently since the last scan.</p>
-  <p class="lede"><strong>A flag means "worth a look", not "malicious".</strong> Labels come from heuristics on tool names
-    and descriptions and can be wrong; a server that covers all three legs on its own is not unsafe by itself, it just
-    deserves Kairoseki in front of it. Maintainers: wrong label? <a href="https://github.com/AnthonyRiveraI/kairoseki/issues/new">Open an issue</a>.</p>
-  <div class="stats" id="stats"></div>
-  <div class="controls">
-    <input type="search" id="q" placeholder="Search servers or tools" aria-label="Search servers or tools">
-    <button class="filter" data-filter="trifecta" aria-pressed="false">All 3 legs</button>
-    <button class="filter" data-filter="poisoned" aria-pressed="false">Poisoned</button>
-    <button class="filter" data-filter="changed" aria-pressed="false">Changed</button>
-    <button class="filter" data-filter="errors" aria-pressed="false">Show skipped / errors</button>
+<header class="sky">
+  <div class="stars" aria-hidden="true"></div>
+  <div class="lang" role="group" aria-label="Language / Idioma">
+    <button type="button" data-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-lang="es" aria-pressed="false">ES</button>
   </div>
-  <div class="list" id="list"><p class="empty">Loading…</p></div>
-  <footer id="footer"></footer>
+  <div class="hero">
+    <button class="rock" id="rock" type="button" aria-label="Kairoseki"></button>
+    <div>
+      <h1>MCP RISK INDEX</h1>
+      <p class="sub" data-i18n="sub"></p>
+      <p class="tag" data-i18n="tag"></p>
+    </div>
+  </div>
+  <div class="waves" aria-hidden="true"></div>
+</header>
+
+<main>
+  <div class="note" id="note"></div>
+  <div class="stats" id="stats"></div>
+  <div class="legend" id="legend"></div>
+  <div class="controls">
+    <input type="search" id="q" data-i18n-placeholder="search">
+    <button class="filter" type="button" data-filter="trifecta" aria-pressed="false" data-i18n="f_trifecta"></button>
+    <button class="filter" type="button" data-filter="poisoned" aria-pressed="false" data-i18n="f_poisoned"></button>
+    <button class="filter" type="button" data-filter="changed" aria-pressed="false" data-i18n="f_changed"></button>
+    <button class="filter" type="button" data-filter="errors" aria-pressed="false" data-i18n="f_errors"></button>
+  </div>
+  <p class="count" id="count" aria-live="polite"></p>
+  <div class="list" id="list"><p class="empty" data-i18n="loading"></p></div>
+  <button class="more" type="button" id="more" hidden data-i18n="more"></button>
 </main>
+<footer id="footer"></footer>
+
 <script>
-// Every string below comes from third-party servers: only ever set it with textContent.
+// Every string from index.json comes from third-party servers: it only ever goes into textContent.
+const I18N = {
+  en: {
+    sub: "Seastone for the whole Grand Line",
+    tag: "Every MCP server in the official registry · scanned by Kairoseki",
+    note_b: "A flag means “worth a look”, not “malicious”.",
+    note: " Labels come from heuristics on tool names and descriptions and can be wrong. A server that covers all three legs on its own isn't unsafe by itself: it just deserves Kairoseki in front of it. Maintainers, wrong label? ",
+    note_a: "Open an issue",
+    s_scanned: "servers scanned (of {n} listed)", s_trifecta: "cover all three legs (heuristic)", s_poisoned: "with poisoned tool definitions", s_changed: "tools changed since the last scan",
+    l_private: "private data", l_untrusted: "untrusted content", l_sink: "a way out", l_seastone: "all three: needs seastone", l_poisoned: "poisoned definition", l_changed: "changed tools",
+    search: "Search the Grand Line: servers or tools…",
+    f_trifecta: "All 3 legs", f_poisoned: "Poisoned", f_changed: "Changed", f_errors: "Skipped / errors",
+    loading: "Raising the sails…", more: "Sail further", none: "No island matches. Try another course.",
+    count: "{shown} of {total} servers", load_error: "Could not load index.json.",
+    c_seastone: "needs seastone", c_poisoned: "{n} poisoned", c_rug: "changed, same version", c_changed: "{n} changed", c_calm: "calm waters",
+    started: "Started with", remote: "Remote endpoint", protect: "Protect it: wrap it with Kairoseki", copy: "Copy", copied: "Copied!",
+    th_tool: "tool", th_legs: "legs", th_notes: "notes", n_poisoned: "poisoned: ", n_changed: "definition changed",
+    st_skipped: "skipped", st_error: "error",
+    footer: "Charted {date} with Kairoseki {v}. Check your own ship:", repo: "Repository",
+  },
+  es: {
+    sub: "Kairoseki para todo el Grand Line",
+    tag: "Cada servidor MCP del registro oficial · escaneado por Kairoseki",
+    note_b: "Una marca significa “vale la pena revisarlo”, no “es malicioso”.",
+    note: " Las etiquetas salen de heurísticas sobre los nombres y descripciones de las tools y pueden fallar. Un servidor que cubre los tres tramos por sí solo no es inseguro: solo merece tener Kairoseki delante. ¿Mantienes un servidor y la etiqueta está mal? ",
+    note_a: "Abre un issue",
+    s_scanned: "servidores escaneados (de {n} listados)", s_trifecta: "cubren los tres tramos (heurístico)", s_poisoned: "con definiciones envenenadas", s_changed: "tools que cambiaron desde el último escaneo",
+    l_private: "datos privados", l_untrusted: "contenido no confiable", l_sink: "una salida", l_seastone: "los tres: pide kairoseki", l_poisoned: "definición envenenada", l_changed: "tools que cambiaron",
+    search: "Busca en el Grand Line: servidores o tools…",
+    f_trifecta: "Los 3 tramos", f_poisoned: "Envenenados", f_changed: "Cambiados", f_errors: "Saltados / errores",
+    loading: "Izando las velas…", more: "Navegar más", none: "Ninguna isla coincide. Prueba otro rumbo.",
+    count: "{shown} de {total} servidores", load_error: "No se pudo cargar index.json.",
+    c_seastone: "pide kairoseki", c_poisoned: "{n} envenenadas", c_rug: "cambió, misma versión", c_changed: "{n} cambiadas", c_calm: "aguas tranquilas",
+    started: "Arranca con", remote: "Endpoint remoto", protect: "Protégelo: envuélvelo con Kairoseki", copy: "Copiar", copied: "¡Copiado!",
+    th_tool: "tool", th_legs: "tramos", th_notes: "notas", n_poisoned: "envenenada: ", n_changed: "la definición cambió",
+    st_skipped: "saltado", st_error: "error",
+    footer: "Carta trazada el {date} con Kairoseki {v}. Revisa tu propio barco:", repo: "Repositorio",
+  },
+};
+
+// ------------------------------------------------------------ pixel sprites: ASCII map + palette -> crisp SVG
+const NS = "http://www.w3.org/2000/svg";
+const SPRITES = {
+  rock: { pal: { "#": "#0a0f1f", a: "#5b6b8c", b: "#8fa3c7", w: "#e8f1ff", c: "#3a4663", s: "#c9d6ff" }, map: [
+    "....######...........", "..##aaaaaa##.........", ".#aabbaaaaaa#........", "#abwwbaaaaaaa#.......", "#abwbaaaaaaac#.......",
+    "#aabaaaaaaacc#..ssss.", "#aaaaaaaaaccc#sss...s", ".#aaaaaaacccc#.s....s", "..#ccccccccc#..s....s", "...#########....ssss."] },
+  chest: { pal: { "#": "#05070f", y: "#f2c94c", d: "#d9a441", b: "#8a5a2b", k: "#5a3a1a" }, map: [
+    ".########.", "#yyyyyyyy#", "#ydddddyy#", "##########", "#bbbbybbb#", "#bbbykybb#", "#bbbbbbbb#", "##########"] },
+  wave: { pal: { w: "#e8f1ff", s: "#9fd3f0", d: "#4c88c4" }, map: [
+    "...ww.....", "..wssw....", ".wsssssw..", "wssddssssw", "ssddddssss", "dddddddddd"] },
+  letter: { pal: { "#": "#05070f", p: "#f4ecd8", r: "#ff6b6b", t: "#c8b48a" }, map: [
+    "##########", "#pt####tp#", "#ppt##tpp#", "#pppttppp#", "#ppppprrp#", "##########"] },
+  skull: { pal: { "#": "#05070f", w: "#f4ecd8" }, map: [
+    "..#####..", ".#wwwww#.", "#wwwwwww#", "#w##w##w#", "#w##w##w#", "#wwwwwww#", ".#w#w#w#.", "..#####.."] },
+  cuffs: { pal: { "#": "#05070f", g: "#f2c94c", d: "#d9a441", l: "#8fa3c7" }, map: [
+    "..###.......###..", ".#ggg#.....#ggg#.", "#gd.dg#lll#gd.dg#", "#g...g#l.l#g...g#", "#gd.dg#lll#gd.dg#", ".#ggg#.....#ggg#.", "..###.......###.."] },
+  compass: { pal: { "#": "#05070f", g: "#d9a441", s: "#9fd3f0", r: "#ff6b6b" }, map: [
+    "..####..", ".#gggg#.", "#gs#rsg#", "#gssrsg#", "#gsrssg#", "#gsr#sg#", ".#gggg#.", "..####.."] },
+};
+
+function sprite(name, scale) {
+  const { pal, map } = SPRITES[name];
+  const w = Math.max(...map.map(r => r.length)), h = map.length;
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "sprite"); svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.setAttribute("width", w * scale); svg.setAttribute("height", h * scale); svg.setAttribute("aria-hidden", "true");
+  map.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (!pal[ch]) return;
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("x", x); r.setAttribute("y", y); r.setAttribute("width", 1); r.setAttribute("height", 1); r.setAttribute("fill", pal[ch]);
+    svg.append(r);
+  }));
+  return svg;
+}
+
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const LEGS = [["private", "chest"], ["untrusted", "wave"], ["sink", "letter"]];
+
+// ------------------------------------------------------------ state
+let data = null, shown = 60, lang = "en";
 const filters = new Set();
-let data = null;
+try { lang = localStorage.getItem("ks-lang") || ""; } catch { lang = ""; }
+if (!lang) lang = (navigator.language || "en").slice(0, 2);
+if (!I18N[lang]) lang = "en";
+const t = (key, vars = {}) => I18N[lang][key].replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 
-function stat(value, label) { const s = el("div", "stat"); s.append(el("b", null, String(value)), el("small", null, label)); return s; }
+function applyLang() {
+  document.documentElement.lang = lang;
+  for (const b of document.querySelectorAll(".lang button")) b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+  for (const n of document.querySelectorAll("[data-i18n]")) n.textContent = t(n.dataset.i18n);
+  const FILTER_ICONS = { trifecta: "cuffs", poisoned: "skull", changed: "compass" };
+  for (const b of document.querySelectorAll(".filter")) if (FILTER_ICONS[b.dataset.filter]) b.prepend(sprite(FILTER_ICONS[b.dataset.filter], 2));
+  for (const n of document.querySelectorAll("[data-i18n-placeholder]")) { n.placeholder = t(n.dataset.i18nPlaceholder); n.setAttribute("aria-label", t(n.dataset.i18nPlaceholder)); }
+  const note = document.getElementById("note"); const text = el("div");
+  const a = el("a", null, t("note_a")); a.href = "https://github.com/AnthonyRiveraI/kairoseki/issues/new";
+  text.append(el("b", null, t("note_b")), t("note"), a, ".");
+  note.replaceChildren(sprite("compass", 3), text);
+  if (data) { renderStats(); renderLegend(); renderFooter(); render(); }
+}
 
-function badges(s) {
-  const b = el("div", "badges");
-  if (s.status !== "ok") { b.append(el("span", "badge", s.status)); return b; }
-  const n = Object.keys(s.poisoned || {}).length;
-  if (n) b.append(el("span", "badge red", `☠ ${n} poisoned`));
-  if (s.rug_pull) b.append(el("span", "badge red", "📌 changed, same version"));
-  else if (s.changed) b.append(el("span", "badge amber", `${s.changed.length} changed`));
-  if (s.trifecta) b.append(el("span", "badge red", "all 3 legs"));
-  for (const [leg, tools] of Object.entries(s.legs)) if (tools.length) b.append(el("span", "badge", leg));
-  if (!b.children.length) b.append(el("span", "badge green", "no risky legs"));
-  return b;
+// ------------------------------------------------------------ header: stars and the seastone
+function drawSky() {
+  const stars = document.querySelector(".stars");
+  for (let i = 0; i < 44; i++) {
+    const s = el("i");
+    s.style.left = `${(Math.floor(Math.random() * 270) * 4 / 1100 * 100).toFixed(2)}%`;
+    s.style.top = `${(Math.floor(Math.random() * 40) * 4 / 2.6).toFixed(2)}%`;
+    s.style.setProperty("--d", `${(2 + Math.random() * 3).toFixed(1)}s`); s.style.setProperty("--b", `${(Math.random() * 3).toFixed(1)}s`);
+    stars.append(s);
+  }
+  const rock = document.getElementById("rock"); rock.append(sprite("rock", 7));
+  rock.addEventListener("click", () => { // tap the seastone: the sky goes wild for a moment
+    for (const s of stars.children) s.style.animationDuration = "0.25s";
+    setTimeout(() => { for (const s of stars.children) s.style.animationDuration = ""; }, 1200);
+  });
+}
+
+// ------------------------------------------------------------ data views
+function stat(icon, value, label) {
+  const s = el("div", "stat"); s.append(sprite(icon, 4));
+  const txt = el("div"); txt.append(el("b", null, String(value)), el("small", null, label)); s.append(txt); return s;
+}
+function renderStats() {
+  const m = data.summary;
+  document.getElementById("stats").replaceChildren(
+    stat("rock", m.scanned, t("s_scanned", { n: m.listed })), stat("cuffs", m.trifecta, t("s_trifecta")),
+    stat("skull", m.poisoned, t("s_poisoned")), stat("compass", m.changed, t("s_changed")));
+}
+function renderLegend() {
+  const items = [["chest", "l_private"], ["wave", "l_untrusted"], ["letter", "l_sink"], ["cuffs", "l_seastone"], ["skull", "l_poisoned"], ["compass", "l_changed"]];
+  document.getElementById("legend").replaceChildren(...items.map(([icon, key]) => { const s = el("span"); s.append(sprite(icon, 2), t(key)); return s; }));
+}
+function renderFooter() {
+  const p = el("span"); p.append(t("footer", { date: data.generated.slice(0, 10), v: data.kairoseki }) + " ", el("code", null, "uvx kairoseki scan"), " · ");
+  const a = el("a", null, t("repo")); a.href = "https://github.com/AnthonyRiveraI/kairoseki"; p.append(a);
+  document.getElementById("footer").replaceChildren(sprite("rock", 3), p);
+}
+
+const poisonedCount = s => Object.keys(s.poisoned || {}).length;
+const chip = (cls, icon, text) => { const c = el("span", `chip ${cls}`); if (icon) c.append(sprite(icon, 2)); c.append(text); return c; };
+
+function meter(legs) {
+  const m = el("div", "meter");
+  for (const [leg, icon] of LEGS) {
+    const on = legs && legs[leg] && legs[leg].length;
+    const slot = el("div", `slot ${on ? "on" : "off"}`); slot.title = t(`l_${leg}`); slot.append(sprite(icon, 2)); m.append(slot);
+  }
+  return m;
 }
 
 function card(s) {
-  const d = el("details"); const sum = el("summary");
-  sum.append(el("span", "name", s.title ? `${s.title} · ${s.name}` : s.name), badges(s), el("span", "desc", s.description));
-  d.append(sum);
-  const body = el("div", "body");
-  if (s.command) { const p = el("p", null, "Started with "); p.append(el("code", null, s.command)); body.append(p); }
-  if (s.repository) { const a = el("a", null, s.repository); a.href = /^https:\/\//.test(s.repository) ? s.repository : "#"; a.rel = "nofollow noopener"; body.append(a); }
-  if (s.reason) body.append(el("p", null, s.reason));
-  if (s.tools && s.tools.length) {
-    const t = el("table"); const head = el("tr"); head.append(el("th", null, "tool"), el("th", null, "labels"), el("th", null, "notes")); t.append(head);
-    for (const tool of s.tools) {
-      const r = el("tr"); const notes = [];
-      if (s.poisoned && s.poisoned[tool.name]) notes.push("poisoned: " + s.poisoned[tool.name].join(", "));
-      if (s.changed && s.changed.includes(tool.name)) notes.push("definition changed");
-      r.append(el("td", null, tool.name), el("td", null, tool.labels.join(", ") || "-"), el("td", null, notes.join("; ")));
-      t.append(r);
-    }
-    body.append(t);
+  const d = el("details", "card");
+  if (s.status === "ok" && poisonedCount(s)) d.classList.add("poisoned"); else if (s.trifecta) d.classList.add("seastone");
+  const sum = el("summary"); const name = el("span", "name", s.title || s.name);
+  if (s.title) name.append(" ", el("small", null, s.name));
+  sum.append(name, s.status === "ok" ? meter(s.legs) : chip("", null, t(s.status === "error" ? "st_error" : "st_skipped")));
+  if (s.description) sum.append(el("span", "desc", s.description));
+  if (s.status === "ok") {
+    const chips = el("div", "chips");
+    if (poisonedCount(s)) chips.append(chip("red", "skull", t("c_poisoned", { n: poisonedCount(s) })));
+    if (s.rug_pull) chips.append(chip("red", "compass", t("c_rug")));
+    else if (s.changed) chips.append(chip("amber", "compass", t("c_changed", { n: s.changed.length })));
+    if (s.trifecta) chips.append(chip("gold", "cuffs", t("c_seastone")));
+    if (!chips.children.length) chips.append(chip("green", null, t("c_calm")));
+    sum.append(chips);
   }
-  d.append(body);
+  d.append(sum);
+  d.addEventListener("toggle", () => { if (d.open && !d.dataset.filled) { d.dataset.filled = "1"; d.append(cardBody(s)); } });
   return d;
 }
 
-function render() {
-  const q = document.getElementById("q").value.trim().toLowerCase();
-  const list = document.getElementById("list"); list.replaceChildren();
-  const shown = data.servers.filter(s => {
-    if (!filters.has("errors") && s.status !== "ok") return false;
-    if (filters.has("trifecta") && !s.trifecta) return false;
-    if (filters.has("poisoned") && !Object.keys(s.poisoned || {}).length) return false;
-    if (filters.has("changed") && !s.changed) return false;
-    if (!q) return true;
-    return [s.name, s.title, s.description, ...(s.tools || []).map(t => t.name)].join(" ").toLowerCase().includes(q);
-  });
-  for (const s of shown.slice(0, 500)) list.append(card(s));
-  if (!shown.length) list.append(el("p", "empty", "No servers match."));
+function cardBody(s) {
+  const body = el("div", "body");
+  if (s.command) { const p = el("p", null, t("started") + " "); p.append(el("code", null, s.command)); body.append(p); }
+  if (s.remote) { const p = el("p", null, t("remote") + " "); p.append(el("code", null, s.remote)); body.append(p); }
+  if (s.repository && /^https:\/\//.test(s.repository)) { const a = el("a", null, s.repository); a.href = s.repository; a.rel = "nofollow noopener"; const p = el("p"); p.append(a); body.append(p); }
+  if (s.reason) body.append(el("p", null, s.reason));
+  if (s.status === "ok" && s.trifecta) {
+    const cmd = s.remote ? "kairoseki wrap --remote" : "kairoseki wrap";
+    const box = el("div", "protect"); box.append(sprite("cuffs", 3), el("span", null, t("protect")), el("code", null, cmd));
+    const b = el("button", "copy", t("copy")); b.type = "button";
+    b.addEventListener("click", () => { if (!navigator.clipboard) return; navigator.clipboard.writeText(cmd).then(() => { b.textContent = t("copied"); setTimeout(() => { b.textContent = t("copy"); }, 1400); }); });
+    box.append(b); body.append(box);
+  }
+  if (s.tools && s.tools.length) {
+    const table = el("table"); const head = el("tr"); head.append(el("th", null, t("th_tool")), el("th", null, t("th_legs")), el("th", null, t("th_notes"))); table.append(head);
+    for (const tool of s.tools) {
+      const legs = el("div", "legs");
+      for (const [leg, icon] of LEGS) if (tool.labels.includes(leg)) { const i = sprite(icon, 2); i.setAttribute("aria-label", t(`l_${leg}`)); i.removeAttribute("aria-hidden"); legs.append(i); }
+      if (!legs.children.length) legs.append("–");
+      const notes = [];
+      if (s.poisoned && s.poisoned[tool.name]) notes.push(t("n_poisoned") + s.poisoned[tool.name].join(", "));
+      if (s.changed && s.changed.includes(tool.name)) notes.push(t("n_changed"));
+      const r = el("tr"); const cell = el("td"); cell.append(legs);
+      r.append(el("td", null, tool.name), cell, el("td", null, notes.join("; "))); table.append(r);
+    }
+    body.append(table);
+  }
+  return body;
 }
 
-fetch("index.json").then(r => r.json()).then(json => {
-  data = json; const m = json.summary;
-  document.getElementById("stats").append(
-    stat(m.scanned, `servers scanned (of ${m.listed} listed)`), stat(m.trifecta, "cover all three legs (heuristic)"),
-    stat(m.poisoned, "with poisoned descriptions"), stat(m.changed, "changed since last scan"));
-  const f = document.getElementById("footer");
-  f.append(`Generated ${json.generated} with Kairoseki ${json.kairoseki}. Labels are heuristics. Protect your own setup: `, el("code", null, "uvx kairoseki scan"));
-  render();
-}).catch(() => { document.getElementById("list").replaceChildren(el("p", "empty", "Could not load index.json.")); });
+function matches() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  return data.servers.filter(s => {
+    if (!filters.has("errors") && s.status !== "ok") return false;
+    if (filters.has("trifecta") && !s.trifecta) return false;
+    if (filters.has("poisoned") && !poisonedCount(s)) return false;
+    if (filters.has("changed") && !s.changed) return false;
+    if (!q) return true;
+    return [s.name, s.title, s.description, ...(s.tools || []).map(x => x.name)].join(" ").toLowerCase().includes(q);
+  });
+}
 
-document.getElementById("q").addEventListener("input", () => data && render());
+function render() {
+  const all = matches(); const list = document.getElementById("list");
+  list.replaceChildren(...all.slice(0, shown).map(card));
+  if (!all.length) list.append(el("p", "empty", t("none")));
+  document.getElementById("count").textContent = t("count", { shown: Math.min(shown, all.length), total: all.length });
+  document.getElementById("more").hidden = all.length <= shown;
+}
+
+// ------------------------------------------------------------ wiring
+drawSky(); applyLang();
+fetch("index.json").then(r => r.json()).then(json => { data = json; applyLang(); })
+  .catch(() => document.getElementById("list").replaceChildren(el("p", "empty", t("load_error"))));
+
+document.getElementById("q").addEventListener("input", () => { shown = 60; if (data) render(); });
+document.getElementById("more").addEventListener("click", () => { shown += 60; render(); });
 for (const b of document.querySelectorAll(".filter")) b.addEventListener("click", () => {
-  const f = b.dataset.filter; filters.has(f) ? filters.delete(f) : filters.add(f);
-  b.setAttribute("aria-pressed", filters.has(f)); data && render();
+  const f = b.dataset.filter; if (filters.has(f)) filters.delete(f); else filters.add(f);
+  b.setAttribute("aria-pressed", String(filters.has(f))); shown = 60; if (data) render();
+});
+for (const b of document.querySelectorAll(".lang button")) b.addEventListener("click", () => {
+  lang = b.dataset.lang; try { localStorage.setItem("ks-lang", lang); } catch { /* private mode */ }
+  applyLang();
 });
 </script>
 </body>
