@@ -62,7 +62,12 @@ _INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
             r"\b(ignore|disregard|forget|override)\b[^.\n]{0,40}\b(previous|prior|above|earlier|all|your|system)\b[^.\n]{0,20}\b(instructions?|prompts?|rules|directives)",
         ),
         ("new_instructions", r"\b(new|updated|real|actual)\s+(system\s+)?(instructions?|directives?|task)\s*[:\-]"),
-        ("role_hijack", r"\b(you are now|from now on,? you|act as (an?|the) (admin|system|root))\b"),
+        (
+            "role_hijack",
+            # "you are now in developer mode", not "you are now connected to the database"
+            r"\b(you are now (an?|the|in|my|acting|operating|free|unrestricted|jailbroken|dan)\b"
+            r"|from now on,? you|act as (an?|the) (admin|system|root))\b",
+        ),
         (
             "hidden_from_user",
             r"\b(do not|don't|never)\s+(tell|inform|mention|show|reveal|alert)\b[^.\n]{0,30}\b(user|human|developer)",
@@ -78,8 +83,10 @@ _INJECTION_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
         (
             "exfil_directive",
+            # an order to a reader, not code (requests.post("https://...")) or a webhook tool's own description
             _NOT
-            + r"\b(send|post|upload|forward|leak|exfiltrate)\b[^.\n]{0,60}\b(https?://|to\s+[\w.+-]+@[\w-]+\.[\w.]+|webhook|attacker)",
+            + r"(?<!\.)\b(send|post|upload|forward|leak|exfiltrate)\b(?!\s*\()[^.\n]{0,60}"
+            + r"\b(https?://|to\s+[\w.+-]+@[\w-]+\.[\w.]+|attacker)",
         ),
         (
             "secret_seeking",
