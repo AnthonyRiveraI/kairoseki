@@ -129,6 +129,7 @@ proyecto (`.mcp.json`), los de usuario y los servidores *locales* del proyecto a
 
 ```bash
 kairoseki wrap            # todas las configuraciones detectadas (primero guarda un respaldo .kairoseki.bak)
+kairoseki wrap --remote  # también servidores remotos (HTTP/SSE), con mcp-remote (requiere Node.js)
 kairoseki wrap --undo     # restaurar
 kairoseki status          # qué servidores están protegidos y qué ha visto cada sesión activa
 ```
@@ -284,7 +285,8 @@ mcp-context-protector de Trail of Bits. Las dos herramientas se complementan.
   base64/hex/URL, al revés o partido en trozos de 12 caracteres o más, pero no uno intercalado carácter por carácter
   o pasado por un cifrado propio. La regla de la tríada letal es la red de seguridad, porque no necesita reconocer el
   dato. Ten cuidado con el modo `monitor` y con las entradas `allow:` de la política, que la desactivan.
-* **Solo servidores stdio** en la v0.1. Los servidores Streamable HTTP están en el roadmap.
+* **Los servidores remotos pasan por [mcp-remote](https://github.com/geelen/mcp-remote).** `kairoseki wrap --remote` los
+  conecta por stdio (requiere Node.js), y mcp-remote se encarga de su login OAuth.
 * **No es un sandbox.** Un binario de servidor malicioso igual puede hacer todo lo que permita tu usuario. Kairoseki
   protege contra *contenido* malicioso, no contra *código* malicioso.
 

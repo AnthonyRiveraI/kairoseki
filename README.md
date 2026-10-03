@@ -126,6 +126,7 @@ servers (`.mcp.json`), user servers and the current project's *local* servers in
 
 ```bash
 kairoseki wrap            # all detected configs (a .kairoseki.bak backup is written first)
+kairoseki wrap --remote  # also remote (HTTP/SSE) servers, bridged with mcp-remote (needs Node.js)
 kairoseki wrap --undo     # restore
 kairoseki status          # which servers are protected, and what each live session has seen
 ```
@@ -315,7 +316,8 @@ excellent mcp-context-protector. The two are complementary.
   split into pieces of 12+ characters, but not one interleaved character by character or run through a custom
   cipher. The lethal-trifecta rule is the safety net that does not need to recognize the data, so be careful with
   `monitor` mode and policy `allow:` entries, which turn it off.
-* **stdio servers only** in v0.1. Streamable HTTP servers are on the roadmap.
+* **Remote servers go through [mcp-remote](https://github.com/geelen/mcp-remote).** `kairoseki wrap --remote` bridges
+  Streamable HTTP and SSE servers to stdio with it (Node.js required), and mcp-remote then handles their OAuth login.
 * **It is not a sandbox.** A malicious server binary can still do anything your user account can. Kairoseki protects
   against malicious *content*, not malicious *code*.
 

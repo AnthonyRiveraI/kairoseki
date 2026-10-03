@@ -58,7 +58,12 @@ def _scan_entries(entries: list[tuple[str, ServerEntry]], timeout: float, result
     problems = 0
     for source, entry in entries:
         if entry.url and not entry.command:
-            table.add_row(entry.name, "-", "-", f"[dim]remote server ({source}), not scanned yet[/dim]")
+            table.add_row(
+                entry.name,
+                "-",
+                "-",
+                f"[dim]remote server ({source}): kairoseki wrap --remote to scan and protect it[/dim]",
+            )
             continue
         result.servers += 1
         if not entry.wrapped:
@@ -151,7 +156,7 @@ def _protection_table(configs: list[tuple[str, Path]], all_projects: bool, title
             continue
         for entry in servers:
             if entry.url and not entry.command:
-                status = "[yellow]remote server, not supported yet[/yellow]"
+                status = "[yellow]remote: protect with kairoseki wrap --remote[/yellow]"
             elif entry.wrapped:
                 status = "[green]🪨 protected[/green]"
                 protected += 1
@@ -172,7 +177,7 @@ def cmd_wrap(a: argparse.Namespace) -> int:
         if a.undo:
             changed = unwrap_config(path, all_projects=a.all_projects)
         else:
-            changed = wrap_config(path, a.policy, a.only, all_projects=a.all_projects)
+            changed = wrap_config(path, a.policy, a.only, all_projects=a.all_projects, remote=a.remote)
         changed_any |= bool(changed)
         verb = "unwrapped" if a.undo else "wrapped"
         if changed:
@@ -486,6 +491,9 @@ def build_parser() -> argparse.ArgumentParser:
     w.add_argument("--policy", help="policy file to pin in the wrapped commands")
     w.add_argument("--only", action="append", help="only wrap these server names")
     w.add_argument("--undo", action="store_true", help="restore the original commands")
+    w.add_argument(
+        "--remote", action="store_true", help="also bridge remote (HTTP/SSE) servers through mcp-remote (needs Node.js)"
+    )
     w.add_argument("--all-projects", action="store_true", help="include Claude Code local servers of every project")
     w.set_defaults(func=cmd_wrap)
 

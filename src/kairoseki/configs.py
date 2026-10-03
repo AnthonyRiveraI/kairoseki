@@ -138,14 +138,50 @@ def unwrap_argv(command: str, args: list[str]) -> tuple[str, list[str]]:
     return rest[0], rest[1:]
 
 
+MCP_REMOTE = ["npx", "-y", "mcp-remote"]
+
+
+def remote_argv(entry: dict[str, Any]) -> list[str]:
+    """A stdio command reaching a remote (Streamable HTTP / SSE) server through mcp-remote, which also does OAuth."""
+    argv = [*MCP_REMOTE, str(entry.get("url") or entry.get("serverUrl"))]
+    for key, value in (entry.get("headers") or {}).items():
+        argv += ["--header", f"{key}:{value}"]
+    if entry.get("type") == "sse":
+        argv += ["--transport", "sse-only"]
+    return argv
+
+
+def remote_entry(argv: list[str]) -> dict[str, Any] | None:
+    """Inverse of :func:`remote_argv`, or None if ``argv`` is not an mcp-remote bridge."""
+    if argv[: len(MCP_REMOTE)] != MCP_REMOTE or len(argv) <= len(MCP_REMOTE):
+        return None
+    rest = argv[len(MCP_REMOTE) :]
+    entry: dict[str, Any] = {"type": "http", "url": rest[0]}
+    headers = {}
+    for flag, value in zip(rest[1::2], rest[2::2], strict=False):
+        if flag == "--header" and ":" in value:
+            key, _, val = value.partition(":")
+            headers[key] = val
+        elif flag == "--transport" and value == "sse-only":
+            entry["type"] = "sse"
+    if headers:
+        entry["headers"] = headers
+    return entry
+
+
 def wrap_config(
     path: Path,
     policy: str | None = None,
     only: list[str] | None = None,
     cwd: Path | None = None,
     all_projects: bool = False,
+    remote: bool = False,
 ) -> list[str]:
-    """Route stdio servers in ``path`` through Kairoseki. Writes a ``.kairoseki.bak`` backup first."""
+    """Route servers in ``path`` through Kairoseki. Writes a ``.kairoseki.bak`` backup first.
+
+    Remote servers are bridged with mcp-remote (Node.js) only when ``remote`` is set, since that
+    moves their OAuth login from the client to mcp-remote.
+    """
     data = json.loads(path.read_text(encoding="utf-8"))
     changed = []
     base = kairoseki_command()
@@ -153,8 +189,15 @@ def wrap_config(
         for name, entry in servers.items():
             if only and name not in only:
                 continue
-            if not isinstance(entry, dict) or not entry.get("command"):
-                continue  # remote (HTTP) servers are not supported yet
+            if not isinstance(entry, dict):
+                continue
+            if not entry.get("command"):
+                if not remote or not (entry.get("url") or entry.get("serverUrl")):
+                    continue
+                bridge = remote_argv(entry)
+                for key in ("type", "url", "serverUrl", "headers"):
+                    entry.pop(key, None)
+                entry.update(type="stdio", command=bridge[0], args=bridge[1:])
             args = [str(a) for a in entry.get("args") or []]
             if is_wrapped(entry["command"], args):
                 continue
@@ -181,7 +224,14 @@ def unwrap_config(path: Path, cwd: Path | None = None, all_projects: bool = Fals
                 continue
             args = [str(a) for a in entry.get("args") or []]
             if is_wrapped(entry["command"], args):
-                entry["command"], entry["args"] = unwrap_argv(entry["command"], args)
+                command, rest = unwrap_argv(entry["command"], args)
+                original = remote_entry([command, *rest])
+                if original is not None:  # a remote server wrapped with --remote: restore its url entry
+                    for key in ("type", "command", "args", "env"):
+                        entry.pop(key, None)
+                    entry.update(original)
+                else:
+                    entry["command"], entry["args"] = command, rest
                 changed.append(name)
     if changed:
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")

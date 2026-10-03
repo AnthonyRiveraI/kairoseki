@@ -240,3 +240,23 @@ def test_wrap_prints_a_protection_summary_and_status_lists_it(tmp_path: Path) ->
     assert "remote server, not supported yet" in wrapped.stdout
     after = subprocess.run(kairoseki_argv("status"), capture_output=True, encoding="utf-8", cwd=tmp_path, env=env)
     assert "1 protected." in after.stdout
+
+
+def test_wrap_remote_bridges_through_mcp_remote_and_undo_restores(tmp_path: Path) -> None:
+    from kairoseki.configs import read_servers, unwrap_config, wrap_config
+
+    original = {
+        "figma": {"type": "http", "url": "https://mcp.figma.com/mcp", "headers": {"X-Key": "abc"}},
+        "legacy": {"type": "sse", "url": "https://old.example.com/sse"},
+        "fetch": {"command": "uvx", "args": ["mcp-server-fetch"]},
+    }
+    path = tmp_path / ".mcp.json"
+    path.write_text(json.dumps({"mcpServers": original}))
+    assert wrap_config(path, cwd=tmp_path) == ["fetch"]  # remote servers need an explicit --remote
+    assert sorted(wrap_config(path, cwd=tmp_path, remote=True)) == ["figma", "legacy"]
+    figma = json.loads(path.read_text())["mcpServers"]["figma"]
+    assert figma["args"][-4:] == ["mcp-remote", "https://mcp.figma.com/mcp", "--header", "X-Key:abc"]
+    assert "url" not in figma and figma["type"] == "stdio"
+    assert all(e.wrapped for e in read_servers(path, cwd=tmp_path))
+    assert sorted(unwrap_config(path, cwd=tmp_path)) == ["fetch", "figma", "legacy"]
+    assert json.loads(path.read_text())["mcpServers"] == original
