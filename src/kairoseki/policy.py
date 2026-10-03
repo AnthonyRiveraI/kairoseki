@@ -35,6 +35,13 @@ approval:
   timeout_seconds: 120  # how long to wait for an in-client approval prompt
   ttl_seconds: 600      # how long a `kairoseki approve <id>` stays valid
 
+# Den Den Mushi: approve risky calls from your phone with the free ntfy app (https://ntfy.sh).
+# Only the server, tool and reason are sent, never the arguments. Get a random topic with `kairoseki denden setup`.
+# denden:
+#   topic: kairoseki-REPLACE-WITH-RANDOM
+#   url: https://ntfy.sh       # or your self-hosted ntfy
+#   token: ""                  # access token, if your ntfy server needs one
+
 # Per-server overrides. Keys are the --name you give `kairoseki run` (globs allowed).
 # servers:
 #   github:
@@ -55,6 +62,13 @@ class ServerRules:
 
 
 @dataclass
+class DenDen:
+    topic: str
+    url: str = "https://ntfy.sh"
+    token: str = ""
+
+
+@dataclass
 class Policy:
     mode: str = "balanced"
     redact_secrets: bool = True
@@ -65,6 +79,7 @@ class Policy:
     approval_timeout: float = 120.0
     approval_ttl: float = 600.0
     servers: dict[str, ServerRules] = field(default_factory=dict)
+    denden: DenDen | None = None
 
     # ------------------------------------------------------------------ lookups
     def _rules_for(self, server: str) -> list[ServerRules]:
@@ -117,6 +132,17 @@ def parse_policy(data: dict[str, Any] | None) -> Policy:
         servers[str(name)] = ServerRules(
             tools=tools, allow=[str(x) for x in raw.get("allow") or []], deny=[str(x) for x in raw.get("deny") or []]
         )
+    denden = None
+    if data.get("denden"):
+        raw_dd = data["denden"]
+        topic = str(raw_dd.get("topic") or "") if isinstance(raw_dd, dict) else ""
+        if len(topic) < 16 or "REPLACE" in topic:
+            raise PolicyError("denden.topic must be a random name of 16+ characters (run: kairoseki denden setup)")
+        denden = DenDen(
+            topic=topic,
+            url=str(raw_dd.get("url") or "https://ntfy.sh").rstrip("/"),
+            token=str(raw_dd.get("token") or ""),
+        )
     return Policy(
         mode=mode,
         redact_secrets=_as_bool(redact, "secrets", True),
@@ -127,6 +153,7 @@ def parse_policy(data: dict[str, Any] | None) -> Policy:
         approval_timeout=float(approval.get("timeout_seconds", 120)),
         approval_ttl=float(approval.get("ttl_seconds", 600)),
         servers=servers,
+        denden=denden,
     )
 
 

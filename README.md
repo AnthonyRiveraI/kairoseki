@@ -224,6 +224,10 @@ When Kairoseki asks:
 
 * **In-client prompt.** If your client supports MCP elicitation, you get an "Allow this call once?" form.
   Kairoseki sends `elicitation/create` in the handshake era and an `input_required` result (SEP-2322) in the 2026-07-28 era.
+* **🐌 Your phone (Den Den Mushi).** With a `denden:` section in your policy, Kairoseki rings the free
+  [ntfy](https://ntfy.sh) app with Approve / Deny buttons and waits for your tap: handy for agents running while you're
+  away. Only the server, tool and reason are sent, never the arguments. Set it up with `kairoseki denden setup`, try
+  it with `kairoseki denden test`.
 * **Terminal.** Otherwise the agent gets a clear refusal with an id. Run `kairoseki approve K-1A2B3C`, then ask the
   agent to retry. Approvals are single-use, bound to the exact arguments, and expire after 10 minutes.
 
@@ -297,7 +301,6 @@ excellent mcp-context-protector. The two are complementary.
 ## Roadmap
 
 - [ ] Streamable HTTP transport
-- [ ] 🐌 Den Den Mushi: Kairoseki *calls your phone* to approve risky actions
 - [ ] OpenTelemetry export of decisions
 - [ ] More attack scenarios. [Propose one!](https://github.com/AnthonyRiveraI/kairoseki/issues/new?template=attack-scenario.yml)
 

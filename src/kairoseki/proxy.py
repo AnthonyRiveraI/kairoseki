@@ -224,6 +224,19 @@ class Proxy:
                     self._reply_error_result(msg, f"🪨 Kairoseki: the user declined '{tool}'.", modern)
                 return
             approval_id = self.engine.approvals.request(self.engine.server, tool, arguments, decision.reasons)
+            if self.engine.policy.denden is not None:
+                answer = await self._phone_ask(tool, decision, approval_id)
+                if answer is not None:
+                    recheck = self.engine.decide(tool, arguments) if answer else decision
+                    if answer and recheck.action != DENY:
+                        self.engine._log("approved", tool=tool, approval=approval_id, via="phone")
+                        await self._forward_call(msg, tool, arguments)
+                    elif answer:
+                        self._reply_error_result(msg, self.engine.deny_text(tool, recheck), modern)
+                    else:
+                        self.engine._log("declined", tool=tool, approval=approval_id, via="phone")
+                        self._reply_error_result(msg, f"🪨 Kairoseki: the user declined '{tool}'.", modern)
+                    return
             self._reply_error_result(msg, self.engine.deny_text(tool, decision, approval_id), modern)
             return
         self._reply_error_result(msg, self.engine.deny_text(tool, decision), modern)
@@ -280,6 +293,16 @@ class Proxy:
                     "requestState": self._make_state(tool, arguments),
                 },
             }
+        )
+
+    async def _phone_ask(self, tool: str, decision: Decision, approval_id: str) -> bool | None:
+        """Den Den Mushi: ring the user's phone through ntfy (blocking HTTP, so in a thread)."""
+        from .denden import ask
+
+        policy = self.engine.policy
+        assert policy.denden is not None
+        return await asyncio.to_thread(
+            ask, policy.denden, self.engine.server, tool, decision.reasons, approval_id, policy.approval_timeout
         )
 
     async def _legacy_ask(self, tool: str, decision: Decision) -> bool:

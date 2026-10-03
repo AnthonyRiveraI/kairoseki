@@ -212,6 +212,10 @@ Cuando Kairoseki pregunta:
 
 * **Dentro de tu cliente.** Si tu cliente soporta MCP elicitation, aparece un formulario "¿Permitir esta llamada una vez?".
   Kairoseki usa `elicitation/create` en la versión con handshake y un resultado `input_required` (SEP-2322) en la versión 2026-07-28.
+* **🐌 Tu teléfono (Den Den Mushi).** Con una sección `denden:` en tu policy, Kairoseki hace sonar la app gratuita
+  [ntfy](https://ntfy.sh) con botones Aprobar / Rechazar y espera tu respuesta: útil para agentes que trabajan mientras
+  no estás. Solo se envían el servidor, la tool y la razón, nunca los argumentos. Configúralo con
+  `kairoseki denden setup` y pruébalo con `kairoseki denden test`.
 * **En la terminal.** Si no, el agente recibe un rechazo claro con un id. Corre `kairoseki approve K-1A2B3C` y pídele al
   agente que lo intente de nuevo. Cada aprobación sirve una sola vez, solo para esos argumentos exactos, y vence en 10 minutos.
 
@@ -287,7 +291,6 @@ mcp-context-protector de Trail of Bits. Las dos herramientas se complementan.
 ## Roadmap
 
 - [ ] Transporte Streamable HTTP
-- [ ] 🐌 Den Den Mushi: Kairoseki *te llama por teléfono* para aprobar acciones riesgosas
 - [ ] Exportar decisiones a OpenTelemetry
 - [ ] Más escenarios de ataque. [¡Propón uno!](https://github.com/AnthonyRiveraI/kairoseki/issues/new?template=attack-scenario.yml)
 

@@ -220,6 +220,36 @@ def cmd_hooks(a: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------- den den mushi
+def cmd_denden(a: argparse.Namespace) -> int:
+    import secrets
+
+    from .denden import ask
+
+    if a.action == "setup":
+        topic = f"kairoseki-{secrets.token_urlsafe(12)}"
+        console.print(
+            "🐌 Den Den Mushi: approve risky calls from your phone.\n\n"
+            "1. Install the free ntfy app (iOS / Android) and subscribe to this topic:\n"
+            f"   [bold]{topic}[/bold]\n"
+            f"2. Add this to your kairoseki.yaml ({home_dir() / 'kairoseki.yaml'}, or run `kairoseki init`):\n\n"
+            f"denden:\n  topic: {topic}\n  url: https://ntfy.sh\n\n"
+            "3. Ring it: kairoseki denden test\n\n"
+            "[dim]Keep the topic secret: anyone who knows it can answer. Only server, tool and reason are sent.[/dim]"
+        )
+        return 0
+    policy = load_policy(a.policy)
+    if policy.denden is None:
+        err.print("No `denden:` section in your policy. Run: kairoseki denden setup")
+        return 2
+    console.print(f"Ringing {policy.denden.url}/{policy.denden.topic} ... tap Approve or Deny (60s).")
+    answer = ask(policy.denden, "test", "ring", ["this is a test from `kairoseki denden test`"], "K-TEST00", 60)
+    console.print(
+        {True: "[green]Approved[/green] ✓", False: "[red]Denied[/red] ✓", None: "[yellow]No answer[/yellow]"}[answer]
+    )
+    return 0 if answer is not None else 1
+
+
 # ---------------------------------------------------------------------------- attack
 def cmd_attack(a: argparse.Namespace) -> int:
     from .lab.attack import run_lab
@@ -468,6 +498,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--scope", choices=["user", "project", "local"], default="user", help="which Claude Code settings file"
     )
     hs.set_defaults(func=cmd_hooks)
+
+    dd = sub.add_parser("denden", help="🐌 Den Den Mushi: approve risky calls from your phone (ntfy)")
+    dd.add_argument("action", choices=["setup", "test"])
+    dd.add_argument("--policy")
+    dd.set_defaults(func=cmd_denden)
 
     at = sub.add_parser("attack", help="replay real-world MCP attacks against Kairoseki and grade it")
     at.add_argument("--policy", help="policy YAML to test")
