@@ -19,6 +19,7 @@ from .configs import ServerEntry, candidate_configs, read_servers, unwrap_argv, 
 from .detect import find_injection, sanitize
 from .labels import PRIVATE, SINK, UNTRUSTED, classify, describe
 from .policy import DEFAULT_POLICY_YAML, PolicyError, home_dir, load_policy
+from .report import ScanResult, render_card
 from .store import Approvals, Audit, PinStore, Session, all_pin_stores
 
 console = Console(stderr=False, highlight=False)
@@ -47,10 +48,10 @@ def cmd_run(a: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------- scan
-def _scan_entries(entries: list[tuple[str, ServerEntry]], timeout: float) -> int:
+def _scan_entries(entries: list[tuple[str, ServerEntry]], timeout: float, result: ScanResult) -> int:
     from .client import StdioClient
 
-    legs: dict[str, list[str]] = {PRIVATE: [], UNTRUSTED: [], SINK: []}
+    legs = result.legs
     table = Table(title="MCP tools by trifecta leg", show_lines=False)
     for col in ("server", "tool", "labels", "notes"):
         table.add_column(col)
@@ -59,6 +60,9 @@ def _scan_entries(entries: list[tuple[str, ServerEntry]], timeout: float) -> int
         if entry.url and not entry.command:
             table.add_row(entry.name, "-", "-", f"[dim]remote server ({source}), not scanned yet[/dim]")
             continue
+        result.servers += 1
+        if not entry.wrapped:
+            result.unprotected.append(entry.name)
         argv = entry.argv()
         if entry.wrapped:
             cmd, args = unwrap_argv(argv[0], argv[1:])
@@ -80,6 +84,7 @@ def _scan_entries(entries: list[tuple[str, ServerEntry]], timeout: float) -> int
                 hits.append("hidden_unicode")
             if hits:
                 problems += 1
+                result.poisoned.append(f"{entry.name}.{name}")
                 notes.append(f"[red]poisoned description: {', '.join(hits)}[/red]")
             for leg in legs:
                 if leg in labels:
@@ -112,9 +117,24 @@ def cmd_scan(a: argparse.Namespace) -> int:
             err.print("No MCP client config found. Pass --config FILE or `kairoseki scan -- <server command>`.")
             return 2
         for label, path in configs:
-            console.print(f"[dim]reading {label}: {path}[/dim]")
+            if not a.json:
+                console.print(f"[dim]reading {label}: {path}[/dim]")
             entries += [(label, e) for e in read_servers(path, all_projects=a.all_projects)]
-    return _scan_entries(entries, a.timeout)
+    result = ScanResult()
+    console.quiet = a.json  # --json: only the JSON document goes to stdout
+    try:
+        code = _scan_entries(entries, a.timeout, result)
+    finally:
+        console.quiet = False
+    if a.json:
+        print(json.dumps({"grade": result.grade, "verdict": result.verdict, **vars(result)}, indent=2))
+    else:
+        console.print(f"[bold]Grade {result.grade}[/bold]: {result.verdict}.")
+    if a.share:
+        Path(a.share).write_text(render_card(result), encoding="utf-8")
+        if not a.json:
+            console.print(f"Shareable card written to {a.share} (counts only: no paths, commands or secrets).")
+    return code
 
 
 # ---------------------------------------------------------------------------- wrap / unwrap
@@ -426,6 +446,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--config", action="append", help="client config file (default: auto-detect)")
     s.add_argument("--timeout", type=float, default=20.0)
     s.add_argument("--all-projects", action="store_true", help="include Claude Code local servers of every project")
+    s.add_argument("--share", metavar="CARD.svg", help="write a shareable report card (counts only, no paths)")
+    s.add_argument("--json", action="store_true", help="machine-readable output")
     s.add_argument("command", nargs=argparse.REMAINDER, help="optional: -- <server command> to scan one server")
     s.set_defaults(func=cmd_scan)
 
