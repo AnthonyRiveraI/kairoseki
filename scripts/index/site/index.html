@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Risk Index</title>
+<meta name="description" content="Every MCP server in the official registry, scanned by Kairoseki: lethal-trifecta legs, poisoned tool descriptions and silent tool changes.">
+<style>
+  :root {
+    --bg: #f6f7fb; --panel: #ffffff; --text: #141a2e; --muted: #5b6478; --line: #e1e4ee;
+    --gold: #9a6b00; --red: #c62828; --green: #1f7a3a; --amber: #8a5a00; --chip: #eef0f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1026; --panel: #121937; --text: #e6edf3; --muted: #9aa4bf; --line: #252f55;
+      --gold: #f2c94c; --red: #ff6b6b; --green: #56d364; --amber: #e3b341; --chip: #1b2448;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1026; --panel: #121937; --text: #e6edf3; --muted: #9aa4bf; --line: #252f55;
+    --gold: #f2c94c; --red: #ff6b6b; --green: #56d364; --amber: #e3b341; --chip: #1b2448;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h1 span { color: var(--gold); }
+  .lede { color: var(--muted); margin: 0 0 24px; max-width: 70ch; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .stat b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .stat small { color: var(--muted); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  input[type=search] { flex: 1 1 240px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
+  .filter { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; font: inherit; }
+  .filter[aria-pressed="true"] { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+  .list { display: grid; gap: 8px; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  summary { list-style: none; cursor: pointer; padding: 12px 16px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+  summary::-webkit-details-marker { display: none; }
+  .name { font-weight: 600; overflow-wrap: anywhere; }
+  .desc { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
+  .badge.red { color: var(--red); } .badge.green { color: var(--green); } .badge.amber { color: var(--amber); }
+  .body { padding: 0 16px 14px; font-size: 13px; }
+  .body code { background: var(--chip); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  td, th { text-align: left; padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 32px; }
+  a { color: var(--gold); }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1><span>🪨</span> MCP Risk Index</h1>
+  <p class="lede">Every MCP server in the official registry that can start without credentials, scanned by
+    <a href="https://github.com/AnthonyRiveraI/kairoseki">Kairoseki</a>: which tools look like legs of the
+    <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">lethal trifecta</a>, which tool descriptions read
+    like prompt injections, and which tools changed silently since the last scan.</p>
+  <p class="lede"><strong>A flag means "worth a look", not "malicious".</strong> Labels come from heuristics on tool names
+    and descriptions and can be wrong; a server that covers all three legs on its own is not unsafe by itself, it just
+    deserves Kairoseki in front of it. Maintainers: wrong label? <a href="https://github.com/AnthonyRiveraI/kairoseki/issues/new">Open an issue</a>.</p>
+  <div class="stats" id="stats"></div>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search servers or tools" aria-label="Search servers or tools">
+    <button class="filter" data-filter="trifecta" aria-pressed="false">All 3 legs</button>
+    <button class="filter" data-filter="poisoned" aria-pressed="false">Poisoned</button>
+    <button class="filter" data-filter="changed" aria-pressed="false">Changed</button>
+    <button class="filter" data-filter="errors" aria-pressed="false">Show skipped / errors</button>
+  </div>
+  <div class="list" id="list"><p class="empty">Loading…</p></div>
+  <footer id="footer"></footer>
+</main>
+<script>
+// Every string below comes from third-party servers: only ever set it with textContent.
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const filters = new Set();
+let data = null;
+
+function stat(value, label) { const s = el("div", "stat"); s.append(el("b", null, String(value)), el("small", null, label)); return s; }
+
+function badges(s) {
+  const b = el("div", "badges");
+  if (s.status !== "ok") { b.append(el("span", "badge", s.status)); return b; }
+  const n = Object.keys(s.poisoned || {}).length;
+  if (n) b.append(el("span", "badge red", `☠ ${n} poisoned`));
+  if (s.rug_pull) b.append(el("span", "badge red", "📌 changed, same version"));
+  else if (s.changed) b.append(el("span", "badge amber", `${s.changed.length} changed`));
+  if (s.trifecta) b.append(el("span", "badge red", "all 3 legs"));
+  for (const [leg, tools] of Object.entries(s.legs)) if (tools.length) b.append(el("span", "badge", leg));
+  if (!b.children.length) b.append(el("span", "badge green", "no risky legs"));
+  return b;
+}
+
+function card(s) {
+  const d = el("details"); const sum = el("summary");
+  sum.append(el("span", "name", s.title ? `${s.title} · ${s.name}` : s.name), badges(s), el("span", "desc", s.description));
+  d.append(sum);
+  const body = el("div", "body");
+  if (s.command) { const p = el("p", null, "Started with "); p.append(el("code", null, s.command)); body.append(p); }
+  if (s.repository) { const a = el("a", null, s.repository); a.href = /^https:\/\//.test(s.repository) ? s.repository : "#"; a.rel = "nofollow noopener"; body.append(a); }
+  if (s.reason) body.append(el("p", null, s.reason));
+  if (s.tools && s.tools.length) {
+    const t = el("table"); const head = el("tr"); head.append(el("th", null, "tool"), el("th", null, "labels"), el("th", null, "notes")); t.append(head);
+    for (const tool of s.tools) {
+      const r = el("tr"); const notes = [];
+      if (s.poisoned && s.poisoned[tool.name]) notes.push("poisoned: " + s.poisoned[tool.name].join(", "));
+      if (s.changed && s.changed.includes(tool.name)) notes.push("definition changed");
+      r.append(el("td", null, tool.name), el("td", null, tool.labels.join(", ") || "-"), el("td", null, notes.join("; ")));
+      t.append(r);
+    }
+    body.append(t);
+  }
+  d.append(body);
+  return d;
+}
+
+function render() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const list = document.getElementById("list"); list.replaceChildren();
+  const shown = data.servers.filter(s => {
+    if (!filters.has("errors") && s.status !== "ok") return false;
+    if (filters.has("trifecta") && !s.trifecta) return false;
+    if (filters.has("poisoned") && !Object.keys(s.poisoned || {}).length) return false;
+    if (filters.has("changed") && !s.changed) return false;
+    if (!q) return true;
+    return [s.name, s.title, s.description, ...(s.tools || []).map(t => t.name)].join(" ").toLowerCase().includes(q);
+  });
+  for (const s of shown.slice(0, 500)) list.append(card(s));
+  if (!shown.length) list.append(el("p", "empty", "No servers match."));
+}
+
+fetch("index.json").then(r => r.json()).then(json => {
+  data = json; const m = json.summary;
+  document.getElementById("stats").append(
+    stat(m.scanned, `servers scanned (of ${m.listed} listed)`), stat(m.trifecta, "cover all three legs (heuristic)"),
+    stat(m.poisoned, "with poisoned descriptions"), stat(m.changed, "changed since last scan"));
+  const f = document.getElementById("footer");
+  f.append(`Generated ${json.generated} with Kairoseki ${json.kairoseki}. Labels are heuristics. Protect your own setup: `, el("code", null, "uvx kairoseki scan"));
+  render();
+}).catch(() => { document.getElementById("list").replaceChildren(el("p", "empty", "Could not load index.json.")); });
+
+document.getElementById("q").addEventListener("input", () => data && render());
+for (const b of document.querySelectorAll(".filter")) b.addEventListener("click", () => {
+  const f = b.dataset.filter; filters.has(f) ? filters.delete(f) : filters.add(f);
+  b.setAttribute("aria-pressed", filters.has(f)); data && render();
+});
+</script>
+</body>
+</html>

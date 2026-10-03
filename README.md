@@ -184,6 +184,15 @@ kairoseki attack --badge kairoseki.svg  # and get a README badge
 kairoseki scan --share card.svg         # a shareable report card of your setup (counts only, no paths)
 ```
 
+## MCP Risk Index
+
+Every week, [a workflow](.github/workflows/index.yml) scans the servers of the
+[official MCP registry](https://registry.modelcontextprotocol.io) that start without credentials, and publishes the
+**[MCP Risk Index](https://anthonyriverai.github.io/kairoseki/)**: tools by trifecta leg, poisoned descriptions, and
+tool definitions that changed since the last scan (same version + changed definition = possible rug pull). Labels are
+heuristics: a flag means "worth a look", not "malicious". Build it yourself with
+`uv run python scripts/index/build.py --out site` (it starts third-party servers: use a disposable machine).
+
 ## Building your own agent? Use it as a library
 
 `Guard` puts the same engine around the Python tools of any framework. Calls are decided like MCP calls, results
