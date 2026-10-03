@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml"><img src="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/version-0.1.1-0b1026?labelColor=0b1026" alt="Version 0.1.1" />
+  <img src="https://img.shields.io/badge/version-0.1.2-0b1026?labelColor=0b1026" alt="Version 0.1.2" />
   <img src="https://img.shields.io/badge/python-3.10%20%E2%86%92%203.13-0b1026?labelColor=0b1026" alt="Python" />
   <img src="https://img.shields.io/badge/MCP-2024--11%20%E2%86%92%202026--07-0b1026?labelColor=0b1026" alt="MCP versions" />
   <img src="docs/assets/score.svg" alt="Kairoseki score" />
@@ -99,7 +99,7 @@ Then make sure the `kairoseki` command is on your `PATH`, and open a **new** ter
 
 ```bash
 uv tool update-shell     # or: pipx ensurepath
-kairoseki --version      # should print: kairoseki 0.1.1
+kairoseki --version      # should print: kairoseki 0.1.2
 ```
 
 > **`kairoseki: command not found`, or your MCP client can't start it?** The tool lives in `~/.local/bin`

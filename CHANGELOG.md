@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+* Fix false positives from fragment fingerprints: vendor prefixes shared by every key (`sk-ant-api03-` is exactly
+  12 characters, `github_pat_`, `sk-proj-`, `xoxb-`...) are no longer fingerprinted as fragments, so another key of
+  the same vendor, or docs that mention the prefix, are not mistaken for a leak. Fragments of the random part are
+  still caught.
+
 ## 0.1.1
 
 Fixes and improvements from real-world testing on Windows.

@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml"><img src="https://github.com/AnthonyRiveraI/kairoseki/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/versión-0.1.1-0b1026?labelColor=0b1026" alt="Versión 0.1.1" />
+  <img src="https://img.shields.io/badge/versión-0.1.2-0b1026?labelColor=0b1026" alt="Versión 0.1.2" />
   <img src="https://img.shields.io/badge/python-3.10%20%E2%86%92%203.13-0b1026?labelColor=0b1026" alt="Python" />
   <img src="https://img.shields.io/badge/MCP-2024--11%20%E2%86%92%202026--07-0b1026?labelColor=0b1026" alt="Versiones de MCP" />
   <img src="docs/assets/score.svg" alt="Nota de Kairoseki" />
@@ -101,7 +101,7 @@ Luego asegúrate de que el comando `kairoseki` esté en tu `PATH` y abre una ter
 
 ```bash
 uv tool update-shell     # o: pipx ensurepath
-kairoseki --version      # debe mostrar: kairoseki 0.1.1
+kairoseki --version      # debe mostrar: kairoseki 0.1.2
 ```
 
 > **¿`kairoseki: command not found`, o tu cliente MCP no lo puede iniciar?** La herramienta se instala en `~/.local/bin`

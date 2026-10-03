@@ -26,6 +26,7 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import secrets
 import time
 import urllib.parse
@@ -125,6 +126,20 @@ def default_session_id() -> str:
     return client_session_id()
 
 
+# Vendor prefixes are the same in every key ("sk-ant-api03-" is exactly 12 characters), so they
+# are never fingerprinted as fragments: only the random part after them identifies a secret.
+_PUBLIC_PREFIX = re.compile(
+    r"^(?:sk-ant-(?:api|admin)\d\d-|sk-ant-|sk-(?:proj|svcacct|admin)-|sk-|gh[pousr]_|github_pat_\d*_?|"
+    r"AKIA|ASIA|xox[abposr]-|AIza|[sr]k_(?:live|test)_|npm_|glpat-|hf_|pk_(?:live|test)_)"
+)
+
+
+def random_part(secret: str) -> str:
+    """The part of a secret that differs between keys: everything after a known vendor prefix."""
+    m = _PUBLIC_PREFIX.match(secret)
+    return secret[m.end() :] if m else secret
+
+
 def secret_variants(value: str) -> set[str]:
     """Encodings an agent might use to smuggle a secret out."""
     raw = value.encode()
@@ -182,10 +197,10 @@ class Session:
         with self._update() as data:
             index: dict[str, list[list[Any]]] = data.setdefault("secret_index", {})
             pieces = {
-                f[i : i + FRAGMENT]
-                for f in fragment
-                for i in range(len(f) - FRAGMENT + 1)
-                if len(set(f[i : i + FRAGMENT])) >= 4  # skip runs like "------------" or "AAAAAAAAAAAA"
+                body[i : i + FRAGMENT]
+                for body in (random_part(f) for f in fragment)
+                for i in range(len(body) - FRAGMENT + 1)
+                if len(set(body[i : i + FRAGMENT])) >= 4  # skip runs like "------------" or "AAAAAAAAAAAA"
             }
             for value in [*values, *fragment, *pieces]:
                 for v in secret_variants(value) if value not in pieces else {value}:
